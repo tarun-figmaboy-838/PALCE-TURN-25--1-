@@ -315,85 +315,84 @@
         /* Genie positioning driven by CSS variables so it can be adjusted
            responsively (media queries) or per-screen via JS. Default values
            match the previous placement. */
-        #genie {
+        /* =========================================================
+           GUIDE UNIT — Gogo + speech bubble move together as ONE wrapper so
+           the bubble tail always points at Gogo's head and the dialogue text
+           stays centred inside the white speech box. Explanation poses move
+           #guide-wrap (not each element), keeping them connected on every screen.
+           ========================================================= */
+        #guide-wrap {
             position: absolute;
-            left: var(--genie-left, 43.8%);
-            top:  var(--genie-top, 8.5%);
-            width: var(--genie-width, 24.8%);
-            height: auto;
-            z-index: 6;
-            user-select: none;
-            -webkit-user-drag: none;
-            transition: left 600ms cubic-bezier(.34,1.2,.4,1),
-                        top 600ms cubic-bezier(.34,1.2,.4,1),
-                        width 600ms cubic-bezier(.34,1.2,.4,1),
-                        transform 520ms ease;
+            left: 50%;
+            top: 5%;
+            width: 46vw;
+            height: 30vw;
+            z-index: 20;
+            pointer-events: none;
         }
 
-        /* Responsive overrides: adjust `#genie` for common screen sizes. */
-        @media (max-width: 600px) {
-            #genie {
-                --genie-left: 50%; /* center for narrow screens */
-                --genie-top: 6%;
-                --genie-width: 36%;
-            }
+        #genie {
+            position: absolute;
+            left: -10%;
+            top: 25%;
+            width: 45%;
+            height: auto;
+            z-index: 2;
+            user-select: none;
+            -webkit-user-drag: none;
+            transform-origin: 50% 85%;
+            transition: transform 520ms ease, opacity 520ms ease;
         }
-        @media (min-width: 601px) and (max-width: 1100px) {
-            #genie {
-                --genie-left: 46%;
-                --genie-top: 7.2%;
-                --genie-width: 30%;
-            }
-        }
-        @media (min-width: 1101px) {
-            #genie {
-                --genie-left: 43.8%;
-                --genie-top: 8.5%;
-                --genie-width: 24.8%;
-            }
+
+        #speech-wrap {
+            position: absolute;
+            left: 12%;
+            top: 0%;
+            width: 82%;
+            aspect-ratio: 520 / 260;
+            z-index: 3;
         }
 
         #dialogue {
             position: absolute;
-            left: 65.4%;
-            top: 3.2%;
-            width: 28%;
-            height: auto;
-            z-index: 8;                 /* bubble ABOVE Gogo (z6) */
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
             user-select: none;
             -webkit-user-drag: none;
-        }
-
-        #dialogue-text {
-            position: absolute;
-            left: 67.6%;
-            top: 7.1%;
-            width: 20.5%;
-            font-size: 2.05vw;
-            font-weight: 900;
-            line-height: 1.15;
-            text-align: center;
-            color: #5a2d0c;
-            z-index: 9;                 /* text ABOVE bubble */
-            pointer-events: none;
-        }
-
-        /* Guide fade transitions — neutral, unhurried pace (not snappy). */
-        #genie,
-        #dialogue,
-        #dialogue-text {
             transition: opacity 520ms ease;
         }
 
-        /* Gogo glides to his explanation pose and leans (points) toward the
-           container being discussed. transform-origin at the lower body so the
-           tilt reads as a friendly lean, not a topple. */
-        #genie {
-            transition: opacity 520ms ease,
-                        left 650ms cubic-bezier(.34, 1.2, .4, 1),
-                        top  650ms cubic-bezier(.34, 1.2, .4, 1),
-                        transform 520ms ease;
-            transform-origin: 50% 85%;
+        /* Flex box that centres the typed text inside the white speech area. The
+           text lives in an inner block (.dt-inner) so <br> line breaks + the
+           per-letter pop keep working (a flex row would ignore <br>). */
+        #dialogue-text {
+            position: absolute;
+            left: 11%;
+            top: 11%;
+            width: 70%;
+            height: 46%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: clamp(24px, 2vw, 38px);
+            font-weight: 900;
+            line-height: 1.05;
+            text-align: center;
+            color: #5a2d0c;
+            padding: 0 0.4em;
+            overflow: hidden;
+            z-index: 4;
+            pointer-events: none;
+            transition: opacity 520ms ease;
+        }
+        #dialogue-text .dt-inner {
+            width: 100%;
+            font-size: inherit;
+            font-weight: inherit;
+            line-height: inherit;
+            color: inherit;
         }
         /* Gentle continuous "pointing" bob during explanations. The lean angle
            is supplied per-pose via the --genie-tilt custom property. */
@@ -989,6 +988,21 @@
             50%      { filter: drop-shadow(0 0 22px rgba(255, 220, 90, 1)); }
         }
 
+        /* Non-interactive "proof" highlight — a steady magical golden glow used
+           on the explanation/discovery screens (AFTER the quiz) to point the
+           child at the container being talked about. Unlike .tap-target-active
+           it carries no cursor/lift and never intercepts taps, so it can glow a
+           container while the guide is speaking. */
+        .proof-glow {
+            animation: proofGlow 1.4s ease-in-out infinite;
+            pointer-events: none;
+        }
+        @keyframes proofGlow {
+            0%, 100% { filter: drop-shadow(0 0 6px  rgba(255, 220, 90, 0.45)); }
+            50%      { filter: drop-shadow(0 0 24px rgba(255, 220, 90, 1))
+                              drop-shadow(0 0 36px rgba(255, 160, 40, 0.6)); }
+        }
+
         /* Animated "tap here" hand hint — appears over the active container
            after 4s of inactivity in the tutorial. Position is set in JS. */
         #hand-hint {
@@ -1536,9 +1550,18 @@
         <!-- Tutorial "tap here" hand hint (appears after 4s idle). -->
         <img id="hand-hint" src="ASSETS/hand nudge.png" alt="">
 
-        <img id="genie"    src="ASSETS/Gogo.png"           alt="">
-        <img id="dialogue" src="ASSETS/Dialoage Box.svg"   alt="">
-        <div id="dialogue-text"></div>
+        <!-- Guide unit: Gogo + speech bubble move together so the bubble tail
+             always points at Gogo's head and the text stays centred in the box. -->
+        <!-- Guide unit: Gogo + speech bubble scale & move together as one fixed
+             group, so the bubble tail stays connected to Gogo's head and the text
+             stays centred inside the white box. -->
+        <div id="guide-wrap">
+            <img id="genie" src="ASSETS/Gogo.png" alt="">
+            <div id="speech-wrap">
+                <img id="dialogue" src="ASSETS/Dialoage Box.svg" alt="">
+                <div id="dialogue-text"></div>
+            </div>
+        </div>
 
         <!-- =========================================================
              Capacity quiz overlay: which jar holds more juice?
@@ -1752,6 +1775,7 @@
         const wideWrap     = document.getElementById('wide-wrap');
         const wide         = document.getElementById('wide');
         const wideLiquid   = document.getElementById('wide-liquid');
+        const guideWrap    = document.getElementById('guide-wrap');
         const genie        = document.getElementById('genie');
         const dialogue     = document.getElementById('dialogue');
         const dialogueText = document.getElementById('dialogue-text');
@@ -1939,7 +1963,7 @@
             switch (stateName) {
                 // Tutorial entry points (mainly for debug jumps).
                 case GAME_STATES.TUTORIAL_START:
-                    showInstructionThenEnable('Tap to fill this<br>container.', tallWrap);
+                    showInstructionThenEnable('Tap to fill<br>this container.', tallWrap);
                     break;
                 case GAME_STATES.TUTORIAL_QUIZ:
                     showCapacityQuiz();
@@ -2083,6 +2107,17 @@
         const WIDE_POUR_MS = 3200;
         const TALL_FLY_MS  = 850;
         const TALL_TILT_MS = 520;
+
+        // ---- Natural universal stream / fill timing ----
+        // Single source of truth for how the nozzle stream grows + fades and how
+        // long a "natural" fill lasts. The stream was globally too fast; growing
+        // it over ~950ms (with a soft fade) reads as a real pour. Fill durations
+        // are held to NATURAL/WIDE_FILL_MS even if a fill SVG finishes earlier,
+        // so stream + bubbles + dispenser drain all stay in sync end-to-end.
+        const STREAM_GROW_MS  = 950;   // nozzle stream extends to the jar mouth
+        const STREAM_FADE_MS  = 280;   // stream shrinks/fades out when fill ends
+        const NATURAL_FILL_MS = 4200;  // tall container natural fill duration
+        const WIDE_FILL_MS    = 4200;  // wide container natural fill duration
 
         // Shared pacing for narration: typing cadence + how long a finished
         // line is held on screen before the next one. Calm, readable beats.
@@ -2232,6 +2267,16 @@
             clearDispenserDrain();
             juice.src = JAR_FULL_SRC;
         }
+        // Show the dispenser in its "used" (paused mid-level) pose — i.e. juice
+        // has already been dispensed. Used by the explanation screens so the
+        // dispenser never looks magically refilled after a fill/pour. No-ops if
+        // it is already showing the paused pose (avoids a reload flash).
+        function setDispenserUsed() {
+            clearDispenserDrain();
+            if ((juice.getAttribute('src') || '').indexOf('paused') === -1) {
+                juice.src = JAR_PAUSED_SRC;
+            }
+        }
         // Start the looping drain animation (restart its SMIL via cache-bust).
         // The loop is 6s; fills are shorter, so no loop is ever visible before
         // freezeDispenserDrain() locks it.
@@ -2251,7 +2296,6 @@
                 dispenserFreezeTimer = setTimeout(() => { juice.style.transition = ''; }, 220);
             }, 150);
         }
-
         // ---------- Typewriter + guide visibility ----------
         let typeTimer = null;
 
@@ -2265,6 +2309,12 @@
             dialogueText.classList.remove('dialogue-pop');
             void dialogueText.offsetWidth;            // restart the keyframe
             dialogueText.classList.add('dialogue-pop');
+
+            // Inner block holds the typed text so <br> line breaks + per-letter
+            // pop work while the outer #dialogue-text flex-centres it in the box.
+            const inner = document.createElement('div');
+            inner.className = 'dt-inner';
+            dialogueText.appendChild(inner);
 
             // Break the line into ordered units: real characters, spaces, and
             // <br>s. Each character is appended as its own bouncing span so it
@@ -2292,14 +2342,14 @@
 
                 const u = units[index++];
                 if (u.br) {
-                    dialogueText.appendChild(document.createElement('br'));
+                    inner.appendChild(document.createElement('br'));
                 } else if (u.ch === ' ') {
-                    dialogueText.appendChild(document.createTextNode(' '));
+                    inner.appendChild(document.createTextNode(' '));
                 } else {
                     const span = document.createElement('span');
                     span.className = 'char-pop';
                     span.textContent = u.ch;
-                    dialogueText.appendChild(span);
+                    inner.appendChild(span);
                 }
             }, TYPE_SPEED);
         }
@@ -2322,49 +2372,44 @@
            about. Positions are percentages, so the pose stays responsive. */
         // Named explanation poses (Gogo + speech bubble + text), so the guide
         // never overlaps the jar proof area. Percentages → stays responsive.
+        // Named explanation poses move the WHOLE guide unit (#guide-wrap), so
+        // Gogo + bubble + text stay connected and the tail keeps pointing at his
+        // head. `left`/`top` position the wrapper; `tilt` leans Gogo toward the
+        // jar being discussed (positive = toward tall/left, negative = wide/right).
+        // Named poses move the WHOLE guide unit (#guide-wrap). Bubble + text are
+        // laid out inside the wrapper by CSS, so we NEVER position them from JS —
+        // only the wrapper moves. `tilt` leans Gogo toward the jar being discussed
+        // (positive = toward tall/left, negative = wide/right).
         const GUIDE_POSES = {
-            wideLevelExplain: {
-                // Gogo sits BELOW the speech bubble (bubble top 3.2%, Gogo top
-                // ~21%) and slightly left, so the bubble + text (higher z-index)
-                // are never covered and Gogo isn't hidden behind the bubble.
-                genieLeft: '49%', genieTop: '21%',
-                bubbleLeft: '65.4%', bubbleTop: '3.2%',
-                textLeft: '67.6%',  textTop: '7.1%',
-                tilt: -3
-            }
+            instruction: { left: '50%', top: '5%', width: '46vw', tilt: 0 },
+            pointTall:   { left: '48%', top: '6%', width: '46vw', tilt: 16 },
+            pointWide:   { left: '50%', top: '6%', width: '46vw', tilt: -24 }
         };
 
-        function setGeniePose(leftPct, topPct, tiltDeg, extras) {
-            genie.style.left = leftPct;
-            genie.style.top  = topPct;
+        // Move the guide unit + lean Gogo.
+        function setGeniePose(leftPct, topPct, tiltDeg) {
+            if (leftPct) guideWrap.style.left = leftPct;
+            if (topPct)  guideWrap.style.top  = topPct;
             genie.style.setProperty('--genie-tilt', (tiltDeg || 0) + 'deg');
             genie.classList.add('is-pointing');
-            // Optionally reposition the speech bubble + text too.
-            if (extras) {
-                if (extras.bubbleLeft) dialogue.style.left     = extras.bubbleLeft;
-                if (extras.bubbleTop)  dialogue.style.top      = extras.bubbleTop;
-                if (extras.textLeft)   dialogueText.style.left = extras.textLeft;
-                if (extras.textTop)    dialogueText.style.top  = extras.textTop;
-            }
         }
-        // Apply a named, hand-tuned pose. (The pose already sits Gogo above the
-        // jars and below the bubble; we do NOT auto-nudge here — the genie PNG's
-        // bounding box includes lots of transparent padding, so box-overlap
-        // checks would wrongly shove him up into the speech bubble.)
         function applyGuidePose(name) {
             const p = GUIDE_POSES[name];
             if (!p) return;
-            setGeniePose(p.genieLeft, p.genieTop, p.tilt, p);
+            guideWrap.style.left = p.left;
+            guideWrap.style.top  = p.top;
+            guideWrap.style.width = p.width || '46vw';
+            genie.style.setProperty('--genie-tilt', (p.tilt || 0) + 'deg');
+            genie.classList.add('is-pointing');
         }
         function resetGeniePose() {
             genie.classList.remove('is-pointing');
-            genie.style.left = '';
-            genie.style.top  = '';
             genie.style.transform = '';
             genie.style.removeProperty('--genie-tilt');
-            // Restore bubble + text to their CSS-default positions.
-            dialogue.style.left = '';     dialogue.style.top = '';
-            dialogueText.style.left = ''; dialogueText.style.top = '';
+            // Restore the guide unit to its CSS-default position + size.
+            guideWrap.style.left = '';
+            guideWrap.style.top  = '';
+            guideWrap.style.width = '';
         }
 
         // Guard: if Gogo's box overlaps either jar, lift him up (and nudge
@@ -2408,6 +2453,21 @@
             [tallWrap, wideWrap].forEach(el => el && el.classList.remove('tap-target-active'));
             activeTapTarget = null;
             stopTutorialIdleHand();
+        }
+
+        // ----- Proof-screen highlight (post-quiz teaching) -----
+        // Steadily glow ONE container (and optionally burst sparkles over it) so
+        // each discovery line points the child at the right jar. Non-interactive
+        // (see .proof-glow) so it never competes with taps. Always single-target:
+        // calling it clears any previous proof glow first.
+        function highlightProof(el, sparkleCount) {
+            clearProofHighlights();
+            if (!el) return;
+            el.classList.add('proof-glow');
+            if (sparkleCount) createSparkles(el, sparkleCount);
+        }
+        function clearProofHighlights() {
+            [tallWrap, wideWrap].forEach(el => el && el.classList.remove('proof-glow'));
         }
 
         // ----- Tutorial idle hand hint (hand nudge.png) -----
@@ -2459,6 +2519,7 @@
         function showInstructionThenEnable(text, targetEl) {
             gameState.canInteract = false;
             clearActiveTapTargets();
+            applyGuidePose('instruction');   // neutral, centred pose for instructions
             showStageGuide();
 
             setDialogue(text, () => {
@@ -2567,7 +2628,7 @@
             stream.style.top    = from.y + 'px';
             stream.style.width  = streamW + 'px';
             stream.style.height = '0px';
-            stream.style.transition = 'height 520ms ease-in-out';
+            stream.style.transition = `height ${STREAM_GROW_MS}ms cubic-bezier(.22,.61,.36,1), opacity ${STREAM_FADE_MS}ms ease`;
             stage.appendChild(stream);
             fxRefs.pourStream = stream;
 
@@ -2588,65 +2649,61 @@
                 // full and the stream stops — so drain + stream end together.
                 startDispenserDrain();
 
-                createBubbles(FILL_MS);
-                genieHappyBounce(FILL_MS - 100);
+                createContainerBubbles(tallWrap, NATURAL_FILL_MS, 'tall');
+                genieHappyBounce(NATURAL_FILL_MS - 100);
 
-                setTimeout(resolve, FILL_MS);
+                setTimeout(resolve, NATURAL_FILL_MS);
             });
         }
 
         // ---------- Step 4: bubbles inside the liquid (rise while filling) ----------
-        function createBubbles(durationMs) {
+        // Reusable for BOTH containers. `type` picks the interior inset so the
+        // bubbles emerge from inside the visible glass of a tall OR wide jar.
+        function createContainerBubbles(wrapEl, durationMs, type = 'tall') {
             const t0 = performance.now();
 
-            function spawn() {
-                // Use the wrapper's bounds (visible glass) with interior insets
-                // so bubbles emerge from the rising surface inside the SVG.
-                const wr = tallWrap.getBoundingClientRect();
-                const ix = wr.left + wr.width  * 0.18;
-                const iw = wr.width  * 0.64;
-                const iy = wr.top  + wr.height * 0.10;
-                const ih = wr.height * 0.82;
-                if (ih < 8) return;
+            const timer = setInterval(() => {
+                if (performance.now() - t0 > durationMs) {
+                    clearInterval(timer);
+                    if (fxRefs.bubbleTimer === timer) fxRefs.bubbleTimer = null;
+                    return;
+                }
 
-                const elapsed  = performance.now() - t0;
-                const progress = Math.min(1, elapsed / durationMs);
-                const surfaceY = iy + ih * (1 - progress * 0.88);
+                const r = wrapEl.getBoundingClientRect();
+
+                const inset = type === 'wide'
+                    ? { x: 0.18, y: 0.18, w: 0.64, h: 0.58 }
+                    : { x: 0.18, y: 0.10, w: 0.64, h: 0.82 };
+
+                const ix = r.left + r.width * inset.x;
+                const iy = r.top + r.height * inset.y;
+                const iw = r.width * inset.w;
+                const ih = r.height * inset.h;
 
                 const size = 4 + Math.random() * 7;
-                const xV   = ix + 3 + Math.random() * Math.max(1, iw - 6);
-                const yV   = surfaceY + Math.random() * Math.min(14, ih * 0.18);
-                const p    = toStage(xV, yV);
+                const x = ix + Math.random() * iw;
+                const y = iy + ih * (0.45 + Math.random() * 0.45);
+                const p = toStage(x, y);
 
                 const b = document.createElement('div');
                 b.className = 'fx-bubble';
-                b.style.left   = (p.x - size / 2) + 'px';
-                b.style.top    = (p.y - size / 2) + 'px';
-                b.style.width  = size + 'px';
-                b.style.height = size + 'px';
+                b.style.left = `${p.x - size / 2}px`;
+                b.style.top = `${p.y - size / 2}px`;
+                b.style.width = `${size}px`;
+                b.style.height = `${size}px`;
                 b.style.opacity = '0.95';
-                b.style.transition = 'transform 1100ms ease-out, opacity 1100ms ease-in';
+                b.style.transition = 'transform 1300ms ease-out, opacity 1300ms ease-in';
                 stage.appendChild(b);
 
-                const rise  = -(ih * (0.30 + Math.random() * 0.22));
-                const drift = (Math.random() - 0.5) * 10;
-
                 requestAnimationFrame(() => {
-                    b.style.transform = `translate(${drift}px, ${rise}px) scale(${0.6 + Math.random() * 0.4})`;
-                    b.style.opacity   = '0';
+                    b.style.transform = `translate(${(Math.random() - 0.5) * 12}px, ${-ih * 0.42}px) scale(.65)`;
+                    b.style.opacity = '0';
                 });
-                setTimeout(() => b.remove(), 1200);
-            }
 
-            fxRefs.bubbleTimer = setInterval(() => {
-                if (performance.now() - t0 > durationMs) {
-                    clearInterval(fxRefs.bubbleTimer);
-                    fxRefs.bubbleTimer = null;
-                    return;
-                }
-                spawn();
-                if (Math.random() < 0.35) spawn();
-            }, 170);
+                setTimeout(() => b.remove(), 1400);
+            }, 190);
+
+            fxRefs.bubbleTimer = timer;
         }
 
         // ---------- Genie happy bounce (Step 7) ----------
@@ -2677,15 +2734,9 @@
                 // together (the core fill-bug fix).
                 freezeDispenserDrain();
 
-                // Pour stream stops only AFTER the container is full.
-                if (fxRefs.pourStream) {
-                    const s = fxRefs.pourStream;
-                    s.style.transition = 'height 180ms ease-out, opacity 220ms ease-out';
-                    s.style.opacity = '0';
-                    s.style.height  = '0px';
-                    setTimeout(() => { s.remove(); }, 240);
-                    fxRefs.pourStream = null;
-                }
+                // Pour stream stops only AFTER the container is full — via the
+                // shared cleanup so it uses the same natural fade timing.
+                stopPourStream();
 
                 createSparkles(tallWrap, 22);   // sparkle burst on a full fill (ring removed)
 
@@ -2793,7 +2844,8 @@
                 // Advance the tutorial: now ask the player to pour into wide.
                 currentStep = STEPS.TAP_POUR_TO_WIDE;
                 currentState = GAME_STATES.TUTORIAL_POUR_TO_WIDE;
-                showInstructionThenEnable('Tap to pour it into<br>the other container.', wideWrap);
+                // The child pours by tapping the FILLED TALL jar (not the wide).
+                showInstructionThenEnable('Tap to pour<br>into the other jar.', tallWrap);
             } catch (err) {
                 console.error('Tall fill sequence error:', err);
             } finally {
@@ -2814,6 +2866,14 @@
             if (currentStep === STEPS.TAP_FILL_TALL) {
                 clearActiveTapTargets();
                 runTallFillSequence();
+                return;
+            }
+
+            // Pour the filled tall jar into the wide container.
+            if (currentStep === STEPS.TAP_POUR_TO_WIDE) {
+                clearActiveTapTargets();
+                runPourToWideSequence();
+                return;
             }
         });
 
@@ -2821,10 +2881,10 @@
         function stopPourStream() {
             if (!fxRefs.pourStream) return;
             const s = fxRefs.pourStream;
-            s.style.transition = 'height 180ms ease-out, opacity 220ms ease-out';
+            s.style.transition = `height ${STREAM_FADE_MS}ms ease-out, opacity ${STREAM_FADE_MS}ms ease-out`;
             s.style.opacity = '0';
             s.style.height = '0px';
-            setTimeout(() => s.remove(), 240);
+            setTimeout(() => s.remove(), STREAM_FADE_MS + 40);
             fxRefs.pourStream = null;
         }
 
@@ -2865,7 +2925,7 @@
             stream.style.height = '0px';
             stream.style.transformOrigin = 'top center';
             stream.style.transform = `rotate(${angle - 90}deg)`;
-            stream.style.transition = 'height 420ms ease-in-out';
+            stream.style.transition = `height ${STREAM_GROW_MS}ms cubic-bezier(.22,.61,.36,1), opacity ${STREAM_FADE_MS}ms ease`;
             stream.style.opacity = '0.92';
             stage.appendChild(stream);
 
@@ -2976,21 +3036,13 @@
 
                 createSparkles(wideWrap, 14);
 
-                // Concept explanation — awaited so the flow stays fully locked
-                // until the quiz opens (no taps possible mid-explanation).
+                // NO explanation before the quiz — the child must answer first
+                // (clear cause-and-effect). All teaching screens play AFTER the
+                // quiz in the result flow. Go STRAIGHT to the question, matching
+                // the Level-2 (wide → tall) pacing.
                 gameState.canInteract = false;
-                setGeniePose('54%', '22%', 4);   // lean toward the wide cup (right)
-                showStageGuide();
-
-                await typeDialogueAwait('Look! There is still<br>space left.');
-                await wait(LINE_HOLD_MS);
-                await typeDialogueAwait('This container<br>holds more juice.');
-                await wait(LINE_HOLD_MS);
-
-                currentStep = STEPS.EXPLAIN_MORE;
-                hideGuide();
-                resetGeniePose();
-                await wait(360);
+                await wait(500);
+                currentStep = STEPS.QUIZ;
                 showCapacityQuiz();
             } finally {
                 document.body.classList.remove('fx-busy');
@@ -3024,7 +3076,9 @@
             tutorialVisualState.dispenser    = 'paused';
             tutorialVisualState.tall         = 'filled';
             tutorialVisualState.wide         = 'empty';
-            tutorialVisualState.spillVisible = true;
+            // No CSS spill puddle — the overflow reads as clean magical sparkles
+            // (set false so applyTutorialVisualState never paints the puddle).
+            tutorialVisualState.spillVisible = false;
         }
 
         // Apply the frozen proof state to the DOM WITHOUT replaying any art:
@@ -3102,22 +3156,33 @@
         // and a single soft chime. (The odd extra "spill drops" particle burst
         // was removed — the SVG already paints its own splash.)
         function triggerOverflowMagic() {
-            createSparkles(tallWrap, 12);   // sparkle shimmer only (ring removed)
-            showOverflowSpill();          // idempotent persistent puddle
+            // Clean + magical: NO messy CSS spill puddle. The overflow beat is
+            // conveyed by a sparkle burst over BOTH jars + a soft chime (the SVG
+            // already paints its own splash during the animation).
+            createSparkles(tallWrap, 20);
+            createSparkles(wideWrap, 20);
             playSound('success');         // gentle by design — played once
         }
 
         // Tunable alignment for the overflow scene overlay. Tweak these instead
         // of hardcoding magic numbers in the fit function.
         const OVERFLOW_SVG_ALIGN = {
-            scale: 1.0,            // 1.0 = match the real jar zone exactly
-            xOffsetPct: 0,         // +right / -left, as % of the jar-span width
-            yOffsetPct: 0,         // +down / -up,    as % of the jar-zone height
+            scale: 1.08,
+            xOffsetPct: 0,         // +right / -left, as fraction of real jar width
+            yOffsetPct: 0,         // +down / -up,    as fraction of real jar width
             baselineOffsetPct: 0,  // nudge the baseline below the jar bottoms
-            // The asset is drawn wide-jar-LEFT / tall-jar-RIGHT, but the real
-            // table is tall-LEFT / wide-RIGHT. Mirror horizontally so the scene
-            // matches (wide still pours into tall — just flipped).
-            mirror: true
+            // Transparent padding BAKED INTO the SVG, as a fraction of the overlay
+            // box — the drawn jars don't reach the SVG edges.
+            internalLeftPadPct: 0.10,
+            internalRightPadPct: 0.10,
+            // The SVG draws its two jars FARTHER apart than the real tall/wide
+            // jars. Compress the target width by this fraction so the depicted
+            // jar gap matches the real on-table gap.
+            gapCompressPct: 0.14,
+            // Horizontal mirror of the overflow scene. Set false (transform:none)
+            // per request. If the pour scene's jars end up on the WRONG side
+            // versus the real tall-left / wide-right table, set this back to true.
+            mirror: false
         };
 
         // Lock the overflow scene to the REAL jars: the overlay box is the
@@ -3126,33 +3191,67 @@
         // (object-position) so the scene's baseline sits on the same table line
         // as the real jars and its jars read at the real jars' size — no scale
         // jump when the SVG appears or clears.
+        // Overflow SVG width factor: the asset draws its two jars CLOSER together
+        // than the real tall/wide jars, so widen the overlay to push them apart
+        // until the depicted gap matches the real on-table gap. Bump toward 1.42
+        // if the gap still looks too small.
+        const WIDE_OVERFLOW_WIDTH_FACTOR = 1.45;
+
         function fitOverflowSvgToRealJars() {
-            const cfg = OVERFLOW_SVG_ALIGN;
-            const sr = stage.getBoundingClientRect();
+            const stageBox = stage.getBoundingClientRect();
             const tallBox = tallWrap.getBoundingClientRect();
             const wideBox = wideWrap.getBoundingClientRect();
-            const left   = Math.min(tallBox.left,   wideBox.left)   - sr.left;
-            const right  = Math.max(tallBox.right,  wideBox.right)  - sr.left;
-            const top    = Math.min(tallBox.top,    wideBox.top)    - sr.top;
-            const bottom = Math.max(tallBox.bottom, wideBox.bottom) - sr.top;
 
-            const spanW = right - left;
-            const zoneH = bottom - top;
-            const bw = spanW * cfg.scale;
-            const bh = zoneH * cfg.scale;
-            const cx = left + spanW / 2 + (cfg.xOffsetPct / 100) * spanW;
-            const baseY = bottom + ((cfg.baselineOffsetPct + cfg.yOffsetPct) / 100) * zoneH;
+            const realLeft = Math.min(tallBox.left, wideBox.left) - stageBox.left;
+            const realRight = Math.max(tallBox.right, wideBox.right) - stageBox.left;
+            const realBottom = Math.max(tallBox.bottom, wideBox.bottom) - stageBox.top;
 
-            htmlPourImg.style.left           = (cx - bw / 2) + 'px';
-            htmlPourImg.style.top            = (baseY - bh) + 'px';
-            htmlPourImg.style.width          = bw + 'px';
-            htmlPourImg.style.height         = bh + 'px';
-            htmlPourImg.style.transform      = cfg.mirror ? 'scaleX(-1)' : 'none';  // tall→left, wide→right
-            htmlPourImg.style.objectFit      = 'contain';        // preserve aspect, no stretch
-            htmlPourImg.style.objectPosition = 'center bottom';  // baseline aligned to jars
+            const realWidth = realRight - realLeft;
+
+            // Widen the overlay so the SVG's internal jars separate more, centred
+            // on the real jar zone with the baseline on the real jar bottoms.
+            const width = realWidth * WIDE_OVERFLOW_WIDTH_FACTOR;
+            const height = width / WIDE_TO_TALL_OVERFLOW_ASPECT;
+
+            const centerX = realLeft + realWidth / 2;
+
+            htmlPourImg.style.left = `${centerX - width / 2}px`;
+            htmlPourImg.style.top = `${realBottom - height}px`;
+            htmlPourImg.style.width = `${width}px`;
+            htmlPourImg.style.height = `${height}px`;
+            htmlPourImg.style.objectFit = 'contain';
+            htmlPourImg.style.objectPosition = 'center bottom';
+            // Keep the horizontal mirror (asset is wide-LEFT/tall-RIGHT; the real
+            // table is tall-LEFT/wide-RIGHT). Set OVERFLOW_SVG_ALIGN.mirror = false
+            // to render it un-mirrored.
+            htmlPourImg.style.transform = OVERFLOW_SVG_ALIGN.mirror ? 'scaleX(-1)' : 'none';
         }
         // Back-compat alias for existing callers.
         const positionOverflowPourOverScene = fitOverflowSvgToRealJars;
+
+        // Debug: report how closely the overflow overlay box lines up with the
+        // real jar zone (baseline + width + horizontal centre). Call once after
+        // the overflow SVG is shown.
+        function validateOverflowAlignment() {
+            const t = tallWrap.getBoundingClientRect();
+            const w = wideWrap.getBoundingClientRect();
+            const o = htmlPourImg.getBoundingClientRect();
+
+            const report = {
+                realTallBottom: Math.round(t.bottom),
+                realWideBottom: Math.round(w.bottom),
+                overlayBottom: Math.round(o.bottom),
+                bottomDelta: Math.round(o.bottom - Math.max(t.bottom, w.bottom)),
+                realJarZoneWidth: Math.round(Math.max(t.right, w.right) - Math.min(t.left, w.left)),
+                overlayWidth: Math.round(o.width),
+                overlayCenter: Math.round(o.left + o.width / 2),
+                realCenter: Math.round((Math.min(t.left, w.left) + Math.max(t.right, w.right)) / 2),
+                mirrored: OVERFLOW_SVG_ALIGN.mirror
+            };
+
+            try { console.table(report); } catch (e) {}
+            return report;
+        }
 
         // Wide → tall OVERFLOW overlay. Plays ASSETS/juice-pour-overflow_7.svg
         // (wide pouring · tall receiving · overflow · spill) over the real jar
@@ -3184,6 +3283,10 @@
                 htmlPourImg.src = WIDE_TO_TALL_OVERFLOW_POUR_SRC + '?t=' + Date.now();
                 playSound('pour');
 
+                // Report alignment once the overlay box has laid out (the box
+                // dimensions are set inline by fitOverflowSvgToRealJars above).
+                requestAnimationFrame(() => { try { validateOverflowAlignment(); } catch (e) {} });
+
                 // 2) During the LAST 1.5s — the overflow/spill beat baked into
                 //    the SVG — layer the magical FX over the on-screen overflow.
                 const magicAt = Math.max(0, WIDE_TO_TALL_OVERFLOW_MS - 1500);
@@ -3203,8 +3306,7 @@
                         // NOT re-set tall.src (that would restart its fill and
                         // flash empty); we just keep the frozen filled glass.
                         wide.src = WIDE_EMPTY_SRC;          // wide poured out → empty
-                        showOverflowSpill();                // persistent puddle
-                        setOverflowVisualState();
+                        setOverflowVisualState();           // no CSS puddle (clean)
 
                         htmlPourImg.style.display    = 'none';
                         htmlPourImg.src              = '';
@@ -3372,41 +3474,101 @@
             currentStep  = STEPS.L2_TAP_FILL_WIDE;
             currentState = GAME_STATES.TUTORIAL_POUR_TO_WIDE;
             await wait(300);
-            showInstructionThenEnable('Tap to fill this<br>container.', wideWrap);
+            showInstructionThenEnable('Tap to fill<br>this container.', wideWrap);
         }
 
         // ----- Wide jar movement (same style as moveTallToTap / returnTall) -----
         // Slide the wide jar up under the dispenser nozzle, aligning its mouth
         // with the tap point, then sit it just below so the pour stream shows.
         let wideTargetTransform = '';
-        // Anchor-based, magically-guided glide (shared with the tall jar). The
-        // 'wide' anchor uses a small tapYOffset so the short jar stays grounded
-        // under the spout instead of floating below the counter.
-        function moveWideToTap() { return moveContainerToTap(wideWrap, 'wide'); }
+        // Fixed lower/front-table spot the wide jar glides to WHILE filling.
+        // leftPct keeps it near (not under) the dispenser; topPct drops it to the
+        // front table area. NOT derived from the nozzle X — that is what kept
+        // pulling the jar under the spout. Percentages of the stage box;
+        // returnWide() clears the transform after.
+        // Bottom-based placement: leftPct keeps it near (not under) the dispenser;
+        // bottomPct is the gap from the stage bottom, so the jar sits low on the
+        // front table edge regardless of screen height. NOT derived from the
+        // nozzle. returnWide() clears the transform after.
+        const WIDE_FILL_TARGET = {
+            leftPct: 33,
+            bottomPct: 14
+        };
 
-        // Pour stream from the nozzle into the (moved) wide jar mouth.
+        // Back-compat wrapper so existing callers still work.
+        function moveWideToTap() {
+            return moveWideToBottomFillSpot();
+        }
+
+        // Glide the wide jar to the fixed lower/front-table fill spot (transform
+        // only; the default #wide-wrap CSS position is never changed).
+        function moveWideToBottomFillSpot() {
+            return new Promise(resolve => {
+                const stageBox = stage.getBoundingClientRect();
+                const wr = wideWrap.getBoundingClientRect();
+
+                const currentLeft = wr.left - stageBox.left;
+                const currentBottom = stageBox.bottom - wr.bottom;
+
+                const targetLeft = stageBox.width * (WIDE_FILL_TARGET.leftPct / 100);
+                const targetBottom = stageBox.height * (WIDE_FILL_TARGET.bottomPct / 100);
+
+                const dx = targetLeft - currentLeft;
+                const dy = currentBottom - targetBottom;
+
+                wideTargetTransform = `translate(${dx}px, ${dy}px)`;
+
+                wideWrap.style.transition = `transform ${MOVE_MS}ms cubic-bezier(.22,1.25,.36,1)`;
+                wideWrap.style.zIndex = '8';
+
+                requestAnimationFrame(() => {
+                    wideWrap.style.transform = wideTargetTransform;
+                });
+
+                emitGlideMagic(wideWrap, MOVE_MS);
+                setTimeout(resolve, MOVE_MS + 20);
+            });
+        }
+
+        // Pour stream from the nozzle to the (moved) wide jar mouth. Because the
+        // jar now sits at the front/bottom spot (offset from the nozzle), the
+        // stream is an ANGLED line: rotated to point from the nozzle to the mouth.
         function startWidePour() {
             playSound('pour');
+
             const tap = getTapPoint();
-            const wr  = wideWrap.getBoundingClientRect();   // moved position
+            const wr = wideWrap.getBoundingClientRect();
 
             const from = toStage(tap.x, tap.y);
-            const to   = toStage(wr.left + wr.width * 0.50, wr.top + wr.height * 0.82);
+            // Reach DEEP inside the jar (toward the juice), not just the rim.
+            const to = toStage(
+                wr.left + wr.width * 0.50,
+                wr.top + wr.height * 0.62
+            );
 
-            const streamW = Math.max(10, Math.round(stage.clientWidth * 0.007));
-            const fullH   = Math.max(80, to.y - from.y);
+            const dx = to.x - from.x;
+            const dy = to.y - from.y;
+            const length = Math.sqrt(dx * dx + dy * dy);
+            const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+
+            const streamW = Math.max(9, Math.round(stage.clientWidth * 0.006));
 
             const stream = document.createElement('div');
             stream.className = 'fx-pour-stream';
-            stream.style.left   = (from.x - streamW / 2) + 'px';
-            stream.style.top    = from.y + 'px';
-            stream.style.width  = streamW + 'px';
+            stream.style.left = `${from.x}px`;
+            stream.style.top = `${from.y}px`;
+            stream.style.width = `${streamW}px`;
             stream.style.height = '0px';
-            stream.style.transition = 'height 520ms ease-in-out';
+            stream.style.transformOrigin = 'top center';
+            stream.style.transform = `rotate(${angle - 90}deg)`;
+            stream.style.transition = `height ${STREAM_GROW_MS}ms cubic-bezier(.22,.61,.36,1), opacity ${STREAM_FADE_MS}ms ease`;
+
             stage.appendChild(stream);
             fxRefs.pourStream = stream;
 
-            requestAnimationFrame(() => { stream.style.height = fullH + 'px'; });
+            requestAnimationFrame(() => {
+                stream.style.height = `${length}px`;
+            });
         }
 
         // Return the wide jar to its original position (keeps the filled art).
@@ -3441,23 +3603,28 @@
                 setDispenserFull();
                 await wait(60);
 
-                // 1) Move the wide jar under the dispenser nozzle (NOT in-place).
-                await moveWideToTap();
+                // 1) Glide the wide jar to the fixed front/bottom-table fill spot
+                //    (NOT under the nozzle, NOT in-place).
+                await moveWideToBottomFillSpot();
 
                 // 2) Pour stream from the nozzle; dispenser plays the animated
                 //    drain SVG, frozen below when the wide fill + stream finish.
                 startWidePour();
                 startDispenserDrain();
+                createContainerBubbles(wideWrap, WIDE_FILL_MS, 'wide');
 
                 // 3) Swap the wide art to the animated fill SVG so the juice
                 //    rises inside it with soda bubbles (keeps its size/design).
                 wide.src = WIDE_FILL_JAR_SRC + '?t=' + Date.now();
 
-                // Wait for the fill animation to finish (SVG freezes full).
-                await wait(WIDE_FILL_JAR_MS);
+                // Hold the FULL natural fill duration even though wide-fill-jar.svg
+                // freezes earlier — so stream, bubbles and dispenser drain stay in
+                // sync and all stop together at the end.
+                await wait(WIDE_FILL_MS);
 
                 // 4) Stop the stream + freeze the dispenser drain together, then
-                //    celebrate.
+                //    celebrate. The dispenser juice decreases NATURALLY via the
+                //    drain SVG (JAR_DRAIN_SRC → JAR_PAUSED_SRC) — no fake mask.
                 stopPourStream();
                 freezeDispenserDrain();
                 createSparkles(wideWrap, 18);
@@ -3470,8 +3637,9 @@
 
                 // Tap 2 prompt: pour the wide jar into the other (tall) container.
                 currentStep = STEPS.L2_TAP_POUR_TO_TALL;
-                showInstructionThenEnable('Tap to pour it into<br>the other container.', wideWrap);
+                showInstructionThenEnable('Tap to pour<br>into the other jar.', wideWrap);
             } finally {
+                if (fxRefs.bubbleTimer) { clearInterval(fxRefs.bubbleTimer); fxRefs.bubbleTimer = null; }
                 if (fxRefs.pourStream) { fxRefs.pourStream.remove(); fxRefs.pourStream = null; }
                 document.body.classList.remove('fx-busy');
                 gameState.busy = false;
@@ -3490,24 +3658,35 @@
             setOverflowVisualState();
             applyTutorialVisualState();
 
-            // Gogo glides to the explanation pose ABOVE the jars (auto-nudged
-            // clear of both containers) so he never overlaps the proof area.
-            applyGuidePose('wideLevelExplain');
-
+            // Gogo points at the TALL jar (left) for the first three lines.
+            applyGuidePose('pointTall');
             showStageGuide();
 
-            await typeDialogueAwait('But the juice<br>overflowed.');
-            await wait(LINE_HOLD_MS);
-
+            // SCREEN 5 — "We poured all the juice here." → point at / highlight TALL.
+            highlightProof(tallWrap, 12);
             await typeDialogueAwait('We poured all the<br>juice here.');
             await wait(LINE_HOLD_MS);
 
+            // SCREEN 6 — "But the juice overflowed." → highlight TALL + sparkle
+            // the spill puddle.
+            highlightProof(tallWrap, 12);
+            createSparkles(tallSpillEl || tallWrap, 18);
+            await typeDialogueAwait('But the juice<br>overflowed.');
+            await wait(LINE_HOLD_MS);
+
+            // SCREEN 7 — "So this container can hold less juice." → highlight TALL.
+            highlightProof(tallWrap, 12);
             await typeDialogueAwait('So this container<br>can hold less juice.');
             await wait(LINE_HOLD_MS);
 
+            // SCREEN 8 — "And this one can hold more juice." → Gogo turns to point
+            // at the WIDE jar (right) + highlight WIDE.
+            applyGuidePose('pointWide');
+            highlightProof(wideWrap, 18);
             await typeDialogueAwait('And this one can<br>hold more juice.');
             await wait(LINE_HOLD_MS);
 
+            clearProofHighlights();
             hideGuide();
             resetGeniePose();
         }
@@ -3556,11 +3735,7 @@
         wideWrap.addEventListener('click', () => {
             if (gameState.busy || !gameState.canInteract) return;
 
-            if (currentStep === STEPS.TAP_POUR_TO_WIDE) {
-                clearActiveTapTargets();
-                runPourToWideSequence();
-                return;
-            }
+            // (Level 1 pour is now triggered by tapping the TALL jar, not here.)
 
             // Level 2 routing: fill the wide jar, then pour it into the tall jar.
             if (currentStep === STEPS.L2_TAP_FILL_WIDE) {
@@ -3680,11 +3855,11 @@
         function onQuizAnswer(which) {
             if (!gameState.canInteract) return;
             stopQuizIdleHints();
+            gameState.canInteract = false;
 
             if (which === 'wide') {
-                // CORRECT: pop ONLY the wide choice, then run the wide-quiz
-                // success flow on the table scene. Never add .correct to both.
-                gameState.canInteract = false;
+                // CORRECT: pop ONLY the wide choice (sparkle burst + magic ring),
+                // then run the shared result flow in its WIN variant.
                 rightChoice.classList.remove('floating', 'is-idle-pulse');
                 rightChoice.classList.add('correct');
                 createSparkles(rightChoice, 24);   // bigger burst on correct
@@ -3693,47 +3868,34 @@
 
                 setTimeout(() => {
                     currentStep = STEPS.SUCCESS;
-                    showWideQuizSuccessFlow();
+                    runQuizResultFlow(true);
                 }, 1000);
                 return;
             }
 
-            // WRONG: ONLY the tapped wrong jar (tall / leftChoice) shakes.
-            // Do NOT pop or "correct" either jar. Then lose-Gogo feedback →
-            // explanation → back to the quiz to try again.
+            // WRONG: gentle, never punishing. ONLY the tapped wrong jar (tall /
+            // leftChoice) shakes — neither jar is "corrected". Then the SAME
+            // teaching flow plays in its LOSE variant and the tutorial CONTINUES
+            // (no retry loop — spec: "Then continue. No punishment.").
             (async () => {
-                gameState.canInteract = false;
-                stopQuizIdleHints();
-
                 leftChoice.classList.remove('floating', 'correct', 'is-idle-pulse');
                 rightChoice.classList.remove('correct', 'is-idle-pulse');
-
                 leftChoice.classList.add('wrong');
                 playSound('pour');
-
                 await wait(520);
-
                 leftChoice.classList.remove('wrong');
-
-                hideCapacityQuiz();
-                await wait(300);
-
-                await showLoseGogoFeedback();
-
-                // Level 2 (wide → tall): reuse the same 4-screen overflow
-                // explanation instead of the short "holds less juice" lines.
-                if (tutorialLevel === TUTORIAL_LEVELS.WIDE_TO_TALL) {
-                    await showWideToTallOverflowExplanation();
-                    await wait(200);
-                } else {
-                    await showWrongQuizExplanation();
-                }
-
-                showCapacityQuiz();
+                runQuizResultFlow(false);
             })();
         }
 
         // ---------- Wrong-answer feedback helpers ----------
+        // The wrong path routes through runQuizResultFlow(false): a gentle
+        // "loose" Gogo popup, then the SAME full teaching explanation as the
+        // correct answer, then the quiz REOPENS (reopenQuizWithMagic) so the
+        // child tries again — gamified, never punishing.
+        // NOTE: showLoseGogoFeedback / showWrongQuizExplanation below are now
+        // UNUSED (the popup + explanation live in runQuizResultFlow); kept only
+        // as reference. Safe to delete.
         // Lose-Gogo overlay (same style/placement as the win-Gogo screen, but
         // ASSETS/loose gogo.png). Gentle — never harsh.
         function showLoseGogoFeedback() {
@@ -3752,6 +3914,8 @@
         }
 
         // Short explanation, same layout as the right-answer explanation lines.
+        // (Now unused — the wrong path shares runQuizResultFlow's explanation;
+        // kept as a reference. Safe to delete.)
         async function showWrongQuizExplanation() {
             setGeniePose('54%', '22%', 0);   // centred, gentle — no harsh lean
             showStageGuide();
@@ -3781,7 +3945,53 @@
             return new Promise(resolve => setDialogue(text, resolve));
         }
 
-        async function showWideQuizSuccessFlow() {
+        // Shared Level-1 (tall → wide) discovery explanation. Plays AFTER the
+        // quiz on BOTH the correct and wrong paths (identical teaching — no
+        // punishment). Screens 5-7, each highlighting the WIDE container; the
+        // "still not full" beat sparkles the empty space at the top.
+        async function showTallToWideExplanation() {
+            // Restore the exact reference proof scene:
+            //   dispenser USED (juice already dispensed) · tall EMPTY ·
+            //   wide = half-wide.svg. The dispenser must NOT look refilled here.
+            setDispenserUsed();                              // paused/used pose + clear drain mask
+            tall.src  = TALL_EMPTY_SRC;                       // ASSETS/TAll container.svg
+            wide.src  = WIDE_HALF_SRC + '?t=' + Date.now();   // ASSETS/half-wide.svg
+            document.body.classList.remove('scene-playing');  // make sure containers show
+            if (tallDrainMask) tallDrainMask.classList.remove('active');
+
+            // Gogo leans toward the wide container being discussed.
+            applyGuidePose('pointWide');
+            showStageGuide();
+
+            // SCREEN 5 — "We poured all the juice here." → highlight WIDE.
+            highlightProof(wideWrap);
+            await typeDialogueAwait('We poured all the<br>juice here.');
+            await wait(LINE_HOLD_MS);
+
+            // SCREEN 6 — "But it is still not full!" → magical sparkles over the
+            // empty space at the top of the wide jar.
+            highlightProof(wideWrap, 16);
+            await typeDialogueAwait('But it is still not full!');
+            await wait(LINE_HOLD_MS);
+
+            // SCREEN 7 — "So, this container can hold more juice." → highlight WIDE.
+            highlightProof(wideWrap);
+            await typeDialogueAwait('So, this container<br>can hold more juice.');
+            await wait(LINE_HOLD_MS);
+
+            clearProofHighlights();
+            hideGuide();
+            resetGeniePose();
+            await wait(300);
+        }
+
+        // Unified post-quiz result flow. Same teaching for BOTH outcomes — the
+        // Both paths play the SAME Gogo popup + full teaching explanation; the
+        // ONLY differences are (a) win vs gentle "loose" Gogo, and (b) the
+        // ending — a CORRECT answer advances the tutorial, a WRONG answer
+        // magically REOPENS the quiz so the child tries again (gamified retry,
+        // never punishing). `isCorrect` is true for the right answer.
+        async function runQuizResultFlow(isCorrect) {
             // Lock everything for the whole sequence.
             gameState.canInteract = false;
             gameState.busy = true;
@@ -3793,70 +4003,63 @@
             hideGuide();                                      // no speech bubble yet
             await wait(320);
 
-            // SCREEN 1 (FIRST): celebration — dim/blur the scene, big centered
-            // win Gogo, no speech bubble.
+            // SCREEN 4: Gogo popup — dim/blur the scene, big centered Gogo, no
+            // speech bubble. Win Gogo + sparkles + chime on a correct answer;
+            // gentle "loose" Gogo (no sparkles, softer sound) on a wrong one.
+            tutorialCelebrateImg.src = isCorrect ? WIN_GOGO_SRC : LOSE_GOGO_SRC;
             tutorialCelebrate.classList.add('show');
             tutorialCelebrate.setAttribute('aria-hidden', 'false');
-            createSparkles(tutorialCelebrate, 22);
-            playSound('success');
-            await wait(2200);
+            if (isCorrect) createSparkles(tutorialCelebrate, 22);
+            playSound(isCorrect ? 'success' : 'pour');
+            await wait(isCorrect ? 2200 : 1700);
             tutorialCelebrate.classList.remove('show');
             tutorialCelebrate.setAttribute('aria-hidden', 'true');
+            tutorialCelebrateImg.src = WIN_GOGO_SRC;          // restore default for next time
             await wait(300);
 
-            // ----- LEVEL 1 (tall → wide): explain, then advance to level 2. -----
-            if (tutorialLevel === TUTORIAL_LEVELS.TALL_TO_WIDE) {
-                // Restore the exact reference scene:
-                //   dispenser full · tall EMPTY · wide = half-wide.svg
-                setDispenserFull();                              // full jar + clear drain mask
-                tall.src  = TALL_EMPTY_SRC;                       // ASSETS/TAll container.svg
-                wide.src  = WIDE_HALF_SRC + '?t=' + Date.now();   // ASSETS/half-wide.svg
-                document.body.classList.remove('scene-playing');  // make sure containers show
-                if (tallDrainMask) tallDrainMask.classList.remove('active');
-
-                // Gogo sits below the bubble and leans right toward the wide
-                // container (positive tilt = lean toward the cup on the right).
-                setGeniePose('54%', '22%', 4);
-                showStageGuide();
-
-                // Explanation screens (same placement, only the line changes).
-                await typeDialogueAwait('We poured all the<br>juice here.');
-                await wait(LINE_HOLD_MS);
-                await typeDialogueAwait('But it is still not full!');
-                await wait(LINE_HOLD_MS);
-                await typeDialogueAwait('So, this container<br>can hold more juice.');
-                await wait(LINE_HOLD_MS);
-                hideGuide();
-                resetGeniePose();
-                await wait(300);
-
-                // Continue to the NEXT variation (data-driven). GAME_COMPLETE
-                // is NOT set until every variation has been proven + quizzed.
-                await advanceTutorialVariation(TUTORIAL_LEVELS.TALL_TO_WIDE);
-                return;
-            }
-
-            // ----- LEVEL 2 (wide → tall): explain AFTER the correct answer. -----
+            // SCREENS 5+: the SAME full teaching explanation on BOTH paths
+            // (per-screen container highlights live inside these helpers).
             if (tutorialLevel === TUTORIAL_LEVELS.WIDE_TO_TALL) {
-                // Proof state is still on the table (tall full · wide empty ·
-                // spill). Show the overflow explanation now — after the quiz —
-                // without replaying any art, then advance.
                 await showWideToTallOverflowExplanation();
-                await wait(300);
-                await advanceTutorialVariation(TUTORIAL_LEVELS.WIDE_TO_TALL);
-                return;
+            } else {
+                await showTallToWideExplanation();
             }
+            await wait(300);
 
-            // ----- Any later variation finished: advance or complete. -----
-            await advanceTutorialVariation(tutorialLevel);
+            // ENDING:
+            //  • CORRECT → continue to the next variation (or finish the tutorial).
+            //  • WRONG   → magically reopen the quiz so the child tries again.
+            if (isCorrect) {
+                await advanceTutorialVariation(tutorialLevel);
+            } else {
+                reopenQuizWithMagic();
+            }
           } catch (err) {
             // Never leave the game stuck in a busy/locked state on error.
-            console.error('[juiceGame] success-flow error:', err);
+            console.error('[juiceGame] result-flow error:', err);
             document.body.classList.remove('fx-busy');
             gameState.busy = false;
             resetGeniePose();
           }
         }
+
+        // Gamified retry: clear the busy lock, play a soft magical chime, re-pop
+        // the quiz (panel + jars spring back in via showCapacityQuiz), and burst
+        // a welcoming sparkle over each choice so the retry feels rewarding, not
+        // like a penalty.
+        function reopenQuizWithMagic() {
+            clearProofHighlights();
+            document.body.classList.remove('fx-busy');
+            gameState.busy = false;
+            playSound('success');               // soft magical chime
+            showCapacityQuiz();                 // gamified pop-in (panel + floating jars)
+            setTimeout(() => {
+                createSparkles(leftChoice, 10);
+                createSparkles(rightChoice, 10);
+            }, 240);
+        }
+        // Back-compat alias (legacy name referenced in older comments).
+        const showWideQuizSuccessFlow = () => runQuizResultFlow(true);
 
         /* =========================================================
            ===============  MAIN GAME FLOW  ========================
@@ -4810,7 +5013,7 @@
         async function enterMainReturnFilled() {
             gameState.busy = true;
             await mgReturnHome(mgLargeWrap);
-            mgShowGuide('Tap to pour it into<br>the other container.');
+            mgShowGuide('Tap to pour<br>into the other jar.');
             mgSetTapTarget(mgLargeWrap);
             currentState = GAME_STATES.MAIN_TAP_TO_POUR;   // armed, waiting for tap
             mgPourArmed = true;
@@ -5079,7 +5282,7 @@
             gameState.canInteract = false;
             currentState = GAME_STATES.TUTORIAL_START;
             console.log('[juiceGame] Play Again → tutorial restart');
-            showInstructionThenEnable('Tap to fill this<br>container.', tallWrap);
+            showInstructionThenEnable('Tap to fill<br>this container.', tallWrap);
         }
 
         // ---------- Entry point ----------
@@ -5430,7 +5633,7 @@
         if (gameOverlay && gameOverlay.parentNode) gameOverlay.remove();
 
         currentState = GAME_STATES.TUTORIAL_START;
-        showInstructionThenEnable('Tap to fill this<br>container.', tallWrap);
+        showInstructionThenEnable('Tap to fill<br>this container.', tallWrap);
 
         // ---------- Debug / inspection helpers ----------
         function debugContainerState() {
@@ -5518,6 +5721,7 @@
             playWideToTallOverflowPour,
             validateOverflowPourOverlay,
             validateOverflowSvgScale,
+            validateOverflowAlignment,
             validateOverflowJarOrder,
             validateGuideLayering,
             validateWideTapPlacement,
