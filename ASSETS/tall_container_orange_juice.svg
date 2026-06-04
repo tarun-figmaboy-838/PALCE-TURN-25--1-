@@ -10,22 +10,22 @@
 <!-- Animated orange juice fill -->
 <g clip-path="url(#orangeJuiceClip)">
   <rect x="4" y="238" width="88" height="0" rx="8" fill="url(#orangeJuiceGradient)" opacity="0.88">
-    <animate attributeName="y" values="238;170;40;28" keyTimes="0;0.45;0.88;1" dur="2.8s" begin="0.2s" fill="freeze" calcMode="spline" keySplines="0.42 0 0.58 1;0.42 0 0.58 1;0.2 0 0.2 1"/>
-    <animate attributeName="height" values="0;68;198;210" keyTimes="0;0.45;0.88;1" dur="2.8s" begin="0.2s" fill="freeze" calcMode="spline" keySplines="0.42 0 0.58 1;0.42 0 0.58 1;0.2 0 0.2 1"/>
+    <animate attributeName="y" values="238;170;40;28" keyTimes="0;0.45;0.88;1" dur="4.0s" begin="0.2s" fill="freeze" calcMode="spline" keySplines="0.42 0 0.58 1;0.42 0 0.58 1;0.2 0 0.2 1"/>
+    <animate attributeName="height" values="0;68;198;210" keyTimes="0;0.45;0.88;1" dur="4.0s" begin="0.2s" fill="freeze" calcMode="spline" keySplines="0.42 0 0.58 1;0.42 0 0.58 1;0.2 0 0.2 1"/>
   </rect>
-  <ellipse cx="48" cy="238" rx="39" ry="8.5" fill="#FFD35A" opacity="0.95">
-    <animate attributeName="cy" values="238;170;40;28" keyTimes="0;0.45;0.88;1" dur="2.8s" begin="0.2s" fill="freeze" calcMode="spline" keySplines="0.42 0 0.58 1;0.42 0 0.58 1;0.2 0 0.2 1"/>
-    <animate attributeName="ry" values="2;7.5;9;9" dur="2.8s" begin="0.2s" fill="freeze"/>
+  <ellipse cx="48" cy="238" rx="39" ry="8.5" fill="#FEA400" opacity="0.95">
+    <animate attributeName="cy" values="238;170;40;28" keyTimes="0;0.45;0.88;1" dur="4.0s" begin="0.2s" fill="freeze" calcMode="spline" keySplines="0.42 0 0.58 1;0.42 0 0.58 1;0.2 0 0.2 1"/>
+    <animate attributeName="ry" values="2;7.5;9;9" dur="4.0s" begin="0.2s" fill="freeze"/>
   </ellipse>
-  <path d="M10 88 C22 82 34 94 48 88 C62 82 74 94 88 88 L88 104 C74 110 62 98 48 104 C34 110 22 98 10 104 Z" fill="#FFE082" opacity="0.32">
-    <animateTransform attributeName="transform" type="translate" values="-10 150;0 82;6 0" keyTimes="0;0.55;1" dur="3s" begin="0.2s" fill="freeze"/>
-    <animate attributeName="opacity" values="0;0.35;0.22" dur="3s" begin="0.2s" fill="freeze"/>
+  <path d="M10 88 C22 82 34 94 48 88 C62 82 74 94 88 88 L88 104 C74 110 62 98 48 104 C34 110 22 98 10 104 Z" fill="#FEB733" opacity="0.32">
+    <animateTransform attributeName="transform" type="translate" values="-10 150;0 82;6 0" keyTimes="0;0.55;1" dur="4.4s" begin="0.2s" fill="freeze"/>
+    <animate attributeName="opacity" values="0;0.35;0.22" dur="4.4s" begin="0.2s" fill="freeze"/>
   </path>
-  <circle cx="29" cy="210" r="2.4" fill="#FFF3BF" opacity="0">
+  <circle cx="29" cy="210" r="2.4" fill="#FFC24D" opacity="0">
     <animate attributeName="cy" values="210;132;110" dur="2.6s" begin="0.8s" fill="freeze"/>
     <animate attributeName="opacity" values="0;0.75;0" dur="2.6s" begin="0.8s" fill="freeze"/>
   </circle>
-  <circle cx="64" cy="220" r="1.8" fill="#FFF3BF" opacity="0">
+  <circle cx="64" cy="220" r="1.8" fill="#FFC24D" opacity="0">
     <animate attributeName="cy" values="220;146;118" dur="2.3s" begin="1s" fill="freeze"/>
     <animate attributeName="opacity" values="0;0.65;0" dur="2.3s" begin="1s" fill="freeze"/>
   </circle>
@@ -47,9 +47,9 @@
 <path opacity="0.3" fill-rule="evenodd" clip-rule="evenodd" d="M67.0993 40.2891C67.0993 40.2891 76.5527 61.0672 77.7605 109.835C78.9684 158.605 75.8098 204.164 74.128 214.299C72.4451 224.434 65.4266 228.49 67.3035 230.11C69.1804 231.727 84.8731 223.971 88.4107 194.751C91.9482 165.532 92.7133 75.0632 88.4107 54.1429C84.108 33.22 78.2629 26.7039 77.7484 18.2468C77.2339 9.78966 77.8081 4.2929 76.1899 4.4404C74.5717 4.58526 63.7083 7.01363 62.736 7.01363C61.7637 7.01363 62.548 29.2719 67.0993 40.2891Z" fill="white"/>
 <defs>
 <linearGradient id="orangeJuiceGradient" x1="48" y1="82" x2="48" y2="238" gradientUnits="userSpaceOnUse">
-  <stop stop-color="#FFD95A"/>
-  <stop offset="0.48" stop-color="#FFB321"/>
-  <stop offset="1" stop-color="#F57C00"/>
+  <stop stop-color="#FEA400"/>
+  <stop offset="0.48" stop-color="#FEA400"/>
+  <stop offset="1" stop-color="#CC8400"/>
 </linearGradient>
 <clipPath id="orangeJuiceClip">
   <path d="M15.3419 0.398438C14.9659 21.9851 -0.200144 28.7592 0.00200288 81.1798C0.0505181 93.8273 0.00503397 131.383 2.72694 196.991C3.97419 227.056 25.7919 241.671 47.5631 241.315C69.3343 241.671 91.152 227.056 92.4003 196.991C95.1222 131.383 95.0757 93.8273 95.1242 81.1798C95.3263 28.7592 80.1613 21.9851 79.7853 0.398438H51.7405H43.3877H15.3419Z"/>
