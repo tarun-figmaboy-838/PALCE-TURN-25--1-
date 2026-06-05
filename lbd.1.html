@@ -2196,7 +2196,7 @@
         // pouring, the tall jar receiving the juice, the overflow, and the
         // spill/splash. It REPLACES the old mirrored juice-reverse-pour.svg —
         // that asset is no longer used for this level.
-        const WIDE_TO_TALL_OVERFLOW_POUR_SRC = 'ASSETS/juice-pour-overflow_7.svg';
+        const WIDE_TO_TALL_OVERFLOW_POUR_SRC = 'ASSETS/juice-pour-overflow.svg';
 
         // The bundled scene runs one full cycle in 6.2s (the SVG's dur="6.2s").
         // Use THIS instead of the generic HTML_POUR_MS for the overflow pour so
@@ -3751,7 +3751,7 @@
             return report;
         }
 
-        // Wide → tall OVERFLOW overlay. Plays ASSETS/juice-pour-overflow_7.svg
+        // Wide → tall OVERFLOW overlay. Plays ASSETS/juice-pour-overflow.svg
         // (wide pouring · tall receiving · overflow · spill) over the real jar
         // area, then fades out and reveals the final proof state. Owns the whole
         // lifecycle — callers don't set tall/wide srcs themselves.
