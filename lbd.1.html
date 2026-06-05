@@ -451,25 +451,30 @@
             transform: scaleX(-1);
         }
 
-        /* Flex box that centres the typed text inside the white speech area. The
-           text lives in an inner block (.dt-inner) so <br> line breaks + the
-           per-letter pop keep working (a flex row would ignore <br>). The
-           speech-bubble image is mirrored (scaleX(-1)) so its tail points left
-           toward Gogo; the text is NOT mirrored, and its safe area is shifted
-           right to clear the now-left-side tail. */
+        /* Text region inside the white speech area. The text lives in an inner
+           block (.dt-inner) so <br> line breaks + the per-letter pop keep working
+           (a flex row would ignore <br>). The speech-bubble image is mirrored
+           (scaleX(-1)) so its tail points left toward Gogo; the text is NOT
+           mirrored.
+           Layout: the line is LEFT-aligned and ANCHORED to the left of the white
+           area, and the region spans the full bubble width so it uses the
+           left-right space (no centred gap on the sides). It stays vertically
+           centred — the white rounded rect sits in the upper ~75% of the art
+           (tail below), so centring on ~40% of #speech-wrap (top:20% h:40%) lands
+           the text in the middle of the white. */
         #dialogue-text {
             position: absolute;
-            left: 13%;
-            top: 9%;
-            width: 74%;
-            height: 50%;
+            left: 15%;
+            top: 13%;
+            width: 80%;
+            height: 40%;
             display: flex;
             align-items: center;
-            justify-content: center;
+            justify-content: flex-start;
             font-size: clamp(24px, 2vw, 38px);
             font-weight: 900;
-            line-height: 1.05;
-            text-align: center;
+            line-height: 1.1;
+            text-align: left;
             color: #5a2d0c;
             padding: 0 0.5em;
             overflow: hidden;
@@ -1142,7 +1147,7 @@
         #hand-hint.show { display: block; animation: handTap 0.95s ease-in-out infinite; }
         @keyframes handTap {
             0%, 100% { transform: translate(-50%, 0)     rotate(6deg) scale(1); }
-            50%      { transform: translate(-50%, -38px) rotate(6deg) scale(1.14); }
+            50%      { transform: translate(-50%, -60px) rotate(6deg) scale(1.14); }
         }
 
         /* Tap burst: a "magic ring" that expands out of the tapped container. */
@@ -2237,12 +2242,19 @@
         // INSIDE the SVG (natural drained look, no cream overlay), so level 2
         // reads as "more juice used" than level 1. See orange_jar_paused_low.svg.
         const JAR_PAUSED_LOW_SRC = 'ASSETS/orange_jar_paused_low.svg';
+        // Level-2 (wide) drain: continues from the MID pose (JAR_PAUSED_SRC, juice
+        // top y=258) and drops the vector juice further to the low level — so the
+        // dispenser depletes progressively across levels (full → mid in L1, mid →
+        // low in L2). Same clip-path vector decrease as JAR_DRAIN_SRC (no sheet),
+        // just a different start/end range so there is no refill jump.
+        const JAR_WIDE_DRAIN_SRC = 'ASSETS/orange_jar_wide_drain.svg';
 
         // Warm the cache so the first swap is near-instant.
         (function preloadJuice() {
             [
                 JUICE_FILL_SRC,
                 JAR_DRAIN_SRC,
+                JAR_WIDE_DRAIN_SRC,
                 JAR_PAUSED_SRC,
                 JAR_PAUSED_LOW_SRC,
                 WIDE_HALF_SRC,
@@ -2382,11 +2394,13 @@
             const jr = juiceRect();
 
             return {
-                // black tap / nozzle SPOUT TIP. x was 0.62 — slightly RIGHT of the
-                // visible spout, so the pour stream (and the jar that centres under
-                // this point) read as detached/offset to the right. 0.59 sits on the
-                // spout opening so the stream falls straight from the nozzle.
-                x: jr.left + jr.width * 0.625,
+                // black tap / nozzle SPOUT TIP. Measured against the rendered
+                // dispenser: the spout opening sits at ~0.56 of the jar width.
+                // It was 0.625 — that lands on the faucet's RIGHT-side handle, so
+                // the pour stream (and the jar, which centres under this point)
+                // read as offset to the right and the nozzle looked detached from
+                // its own pour. 0.56 drops the stream straight out of the spout.
+                x: jr.left + jr.width * 0.615,
                 y: jr.top  + jr.height * 0.82
             };
         }
@@ -2441,12 +2455,13 @@
                 juice.src = JAR_PAUSED_SRC;
             }
         }
-        // Start the looping drain animation (restart its SMIL via cache-bust).
-        // The loop is 6s; fills are shorter, so no loop is ever visible before
-        // freezeDispenserDrain() locks it.
-        function startDispenserDrain() {
+        // Start the drain animation (restart its SMIL via cache-bust). The clip
+        // plays once and freezes; freezeDispenserDrain() locks the static pose.
+        // drainSrc lets level 2 use the MID→LOW drain (JAR_WIDE_DRAIN_SRC) instead
+        // of the default full→mid drain.
+        function startDispenserDrain(drainSrc) {
             clearDispenserDrain();
-            juice.src = JAR_DRAIN_SRC + '?t=' + Date.now();
+            juice.src = (drainSrc || JAR_DRAIN_SRC) + '?t=' + Date.now();
         }
         // Freeze the drain at the current moment by crossfading to the paused
         // pose. The crossfade softens the small level snap (looping SVG → paused
@@ -3028,9 +3043,12 @@
         // front step under the nozzle (tall ≈ 0.55·h, wide is shorter so it needs
         // a larger drop ≈ 1.35·h to reach the same step instead of floating at the
         // dispenser base).
+        // dropPct (optional): extra downward nudge at the fill spot, as a fraction
+        // of the STAGE height — used to sit the wide jar a little lower on the
+        // front step so it reads as grounded under the nozzle.
         const CONTAINER_ANCHORS = {
             tall: { mouthX: 0.50, mouthY: 0.02, tapYOffset: 0.55 },
-            wide: { mouthX: 0.50, mouthY: 0.08, tapYOffset: 1.35 }
+            wide: { mouthX: 0.50, mouthY: 0.08, tapYOffset: 1.35, dropPct: 0.04 }
         };
 
         // Shared "magically guided" glide of a jar under the dispenser tap.
@@ -3044,7 +3062,10 @@
                 const tap = getTapPoint();
 
                 const dx = tap.x - (wr.left + wr.width  * a.mouthX);
-                const dy = (tap.y + wr.height * a.tapYOffset) - (wr.top + wr.height * a.mouthY);
+                let   dy = (tap.y + wr.height * a.tapYOffset) - (wr.top + wr.height * a.mouthY);
+                // Optional extra drop (fraction of stage height) so the jar sits
+                // a touch lower on the front step.
+                if (a.dropPct) dy += stageRect().height * a.dropPct;
 
                 const target = `translate(${dx}px, ${dy}px)`;
                 // Store the PURE translate so the success bounce / return can
@@ -3563,13 +3584,15 @@
             if (s.spillVisible) showOverflowSpill(); else hideOverflowSpill();
         }
 
-        // Restore the base table scene: dispenser full, both containers empty.
+        // Restore the base table scene for level 2: dispenser at the MID pose
+        // (juice already used in level 1 — never refilled to full), both
+        // containers empty.
         function resetTableSceneForLevel2() {
-            tutorialVisualState.dispenser    = 'full';
+            tutorialVisualState.dispenser    = 'used';
             tutorialVisualState.tall         = 'empty';
             tutorialVisualState.wide         = 'empty';
             tutorialVisualState.spillVisible = false;
-            setDispenserFull();   // full jar + cleared drain mask
+            setDispenserUsed();   // mid (paused) pose + cleared drain mask
             tall.src  = TALL_EMPTY_SRC;
             wide.src  = WIDE_EMPTY_SRC;
             tallLiquid.classList.remove('full');
@@ -4017,11 +4040,14 @@
             const wr = wideWrap.getBoundingClientRect();
 
             const from = toStage(tap.x, tap.y);
-            // Reach all the way to the BOTTOM of the jar so the stream visibly
-            // touches the base (was 0.62 — too short, left a gap above the juice).
+            // Stream ends INSIDE the jar opening (upper-mid), not at the very base.
+            // 0.95 reached the bottom of the wrap box — and once the jar was nudged
+            // lower (wide dropPct) that point fell past the visible jar bottom, so
+            // the stream looked like it poured straight through and out the bottom.
+            // 0.58 keeps the falling juice landing inside the jar mouth.
             // Vertical stream: same x as the tap so the juice falls straight DOWN
             // from the spout into the jar (the jar is centred under the tap point).
-            const to = toStage(tap.x, wr.top + wr.height * 0.95);
+            const to = toStage(tap.x, wr.top + wr.height * 0.58);
 
             const dx = to.x - from.x;
             const dy = to.y - from.y;
@@ -4075,9 +4101,12 @@
             try {
                 currentStep = STEPS.L2_FILLING_WIDE;
 
-                // Start from a clean state: empty wide + full dispenser.
+                // Start from a clean state: empty wide + the MID dispenser pose
+                // (orange_jar_paused_mid.svg). Level 1 already dispensed one tall
+                // glass, so level 2 must NOT look refilled — it continues from the
+                // mid level and drains further as the wide jar fills.
                 wide.src  = WIDE_EMPTY_SRC;
-                setDispenserFull();
+                setDispenserUsed();   // paused/mid pose (juice top y=258) + clear drain mask
                 await wait(60);
 
                 // 1) Glide the wide jar to the SAME front/lower-step spot under the
@@ -4086,10 +4115,13 @@
                 //    the dispenser base).
                 await moveContainerToTap(wideWrap, 'wide');
 
-                // 2) Pour stream from the nozzle; dispenser plays the animated
-                //    drain SVG, frozen below when the wide fill + stream finish.
+                // 2) Pour stream from the nozzle; dispenser plays the MID→LOW
+                //    drain SVG (continues seamlessly from the mid pose above — the
+                //    drain's first frame is the same y=258 level), frozen below
+                //    when the wide fill + stream finish. Pure vector clip decrease,
+                //    no cream sheet/overlay.
                 startWidePour();
-                startDispenserDrain();
+                startDispenserDrain(JAR_WIDE_DRAIN_SRC);
                 createContainerBubbles(wideWrap, WIDE_FILL_MS, 'wide');
 
                 // 3) Swap the wide art to the animated fill SVG so the juice
@@ -4102,10 +4134,9 @@
                 await wait(WIDE_FILL_MS);
 
                 // 4) Stop the stream + freeze the dispenser drain together, then
-                //    celebrate. The dispenser juice decreases NATURALLY via the
-                //    drain SVG; level 2 freezes to the LOWER juice pose
-                //    (JAR_PAUSED_LOW_SRC) so it shows ~10% more used than level 1 —
-                //    the drop is inside the SVG art, no cream overlay/sheet.
+                //    celebrate. The dispenser juice decreased NATURALLY from the
+                //    mid level to the low level via the vector clip drain; freeze
+                //    to the static LOW pose (JAR_PAUSED_LOW_SRC). No cream sheet.
                 stopPourStream();
                 freezeDispenserDrain(JAR_PAUSED_LOW_SRC);
                 createSparkles(wideWrap, 18);

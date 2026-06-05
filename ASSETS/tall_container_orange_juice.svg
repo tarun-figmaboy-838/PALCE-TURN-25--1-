@@ -10,11 +10,11 @@
 <!-- Animated orange juice fill -->
 <g clip-path="url(#orangeJuiceClip)">
   <rect x="4" y="238" width="88" height="0" rx="8" fill="url(#orangeJuiceGradient)" opacity="0.88">
-    <animate attributeName="y" values="238;170;40;28" keyTimes="0;0.45;0.88;1" dur="4.0s" begin="0.2s" fill="freeze" calcMode="spline" keySplines="0.42 0 0.58 1;0.42 0 0.58 1;0.2 0 0.2 1"/>
-    <animate attributeName="height" values="0;68;198;210" keyTimes="0;0.45;0.88;1" dur="4.0s" begin="0.2s" fill="freeze" calcMode="spline" keySplines="0.42 0 0.58 1;0.42 0 0.58 1;0.2 0 0.2 1"/>
+    <animate attributeName="y" values="238;170;20;8" keyTimes="0;0.45;0.88;1" dur="4.0s" begin="0.2s" fill="freeze" calcMode="spline" keySplines="0.42 0 0.58 1;0.42 0 0.58 1;0.2 0 0.2 1"/>
+    <animate attributeName="height" values="0;68;218;230" keyTimes="0;0.45;0.88;1" dur="4.0s" begin="0.2s" fill="freeze" calcMode="spline" keySplines="0.42 0 0.58 1;0.42 0 0.58 1;0.2 0 0.2 1"/>
   </rect>
   <ellipse cx="48" cy="238" rx="39" ry="8.5" fill="#FEA400" opacity="0.95">
-    <animate attributeName="cy" values="238;170;40;28" keyTimes="0;0.45;0.88;1" dur="4.0s" begin="0.2s" fill="freeze" calcMode="spline" keySplines="0.42 0 0.58 1;0.42 0 0.58 1;0.2 0 0.2 1"/>
+    <animate attributeName="cy" values="238;170;20;8" keyTimes="0;0.45;0.88;1" dur="4.0s" begin="0.2s" fill="freeze" calcMode="spline" keySplines="0.42 0 0.58 1;0.42 0 0.58 1;0.2 0 0.2 1"/>
     <animate attributeName="ry" values="2;7.5;9;9" dur="4.0s" begin="0.2s" fill="freeze"/>
   </ellipse>
   <path d="M10 88 C22 82 34 94 48 88 C62 82 74 94 88 88 L88 104 C74 110 62 98 48 104 C34 110 22 98 10 104 Z" fill="#FEB733" opacity="0.32">
