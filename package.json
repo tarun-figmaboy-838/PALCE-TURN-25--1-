@@ -1,0 +1,31 @@
+{
+  "name": "palce-turn-25-1",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Juice Genie — an interactive capacity & volume tutorial game for young learners (single-file HTML5).",
+  "scripts": {
+    "start": "npx --yes serve -l 3000 .",
+    "dev": "npx --yes serve -l 3000 ."
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tarun-figmaboy-838/PALCE-TURN-25--1-.git"
+  },
+  "keywords": [
+    "education",
+    "game",
+    "html5",
+    "kids",
+    "capacity",
+    "volume"
+  ],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/tarun-figmaboy-838/PALCE-TURN-25--1-/issues"
+  },
+  "homepage": "https://github.com/tarun-figmaboy-838/PALCE-TURN-25--1-#readme",
+  "devDependencies": {
+    "puppeteer-core": "^25.1.0"
+  }
+}

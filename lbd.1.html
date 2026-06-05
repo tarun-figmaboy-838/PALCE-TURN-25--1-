@@ -2,7 +2,13 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Lock zoom (no pinch / double-tap zoom that would break the tap game) and
+         extend under notches/rounded corners on phones. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#caa46a">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>Juice Genie - Tap to Fill</title>
     <style>
         /* ===== Single tutorial juice theme (locked palette) =====
@@ -32,14 +38,94 @@
             overflow: hidden;
             background: #000;
             font-family: 'Comic Sans MS', 'Baloo', 'Fredoka', system-ui, sans-serif;
+            /* Mobile hardening: no rubber-band scroll, no pinch/double-tap zoom,
+               no blue tap flash or accidental text/callout selection on touch. */
+            position: fixed;
+            inset: 0;
+            overscroll-behavior: none;
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
         }
 
+        /* The stage is locked to a centred 16:9 frame (letterboxed with the
+           body's black bars) so every child's %-position is measured against a
+           true 16:9 box — exactly like the Figma frames — at ANY window size.
+           Without this, a non-16:9 viewport stretches the % grid and the props
+           drift off the table. */
         #game-stage {
-            position: relative;
-            width: 100vw;
-            height: 100vh;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: min(100vw, 177.778vh);   /* 16/9 */
+            height: min(56.25vw, 100vh);    /* 9/16 */
+            /* dvh = dynamic viewport height: tracks the mobile address bar so the
+               stage never jumps or gets cropped behind it (vh fallback above). */
+            width: min(100vw, 177.778dvh);
+            height: min(56.25vw, 100dvh);
             overflow: hidden;
         }
+
+        /* ============ Rotate-to-landscape gate (mobile portrait) ============
+           This is a landscape 16:9 game. On a portrait phone / small tablet the
+           stage would shrink to a tiny letterboxed strip, so instead we cover the
+           screen with a friendly "turn your device" prompt. Pure CSS — it appears
+           and disappears with the orientation, the game keeps its state behind it. */
+        #rotate-gate { display: none; }
+        @media screen and (orientation: portrait) and (max-width: 900px) {
+            #rotate-gate {
+                display: flex;
+                position: fixed;
+                inset: 0;
+                z-index: 99999;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                gap: clamp(18px, 6vw, 40px);
+                text-align: center;
+                padding: 8vw;
+                color: #5a3d1c;
+                background: radial-gradient(circle at 50% 38%, #ecd7ad 0%, #caa46a 68%, #b58f56 100%);
+            }
+            #game-stage { visibility: hidden; }   /* hide the squished strip behind */
+        }
+        .rotate-phone {
+            width: clamp(72px, 22vw, 128px);
+            height: clamp(120px, 36vw, 208px);
+            border: clamp(4px, 1vw, 8px) solid #5a3d1c;
+            border-radius: clamp(10px, 4vw, 20px);
+            background: #fff7e8;
+            position: relative;
+            transform-origin: center center;
+            animation: rotateHint 2.4s ease-in-out infinite;
+        }
+        .rotate-phone::before {   /* the "screen" — orange juice gradient */
+            content: "";
+            position: absolute;
+            inset: clamp(5px, 1.6vw, 10px);
+            border-radius: clamp(5px, 2vw, 10px);
+            background: linear-gradient(135deg, #FEA400, #CC8400);
+        }
+        .rotate-phone::after {    /* home indicator */
+            content: "";
+            position: absolute;
+            bottom: clamp(3px, 1vw, 6px);
+            left: 50%;
+            transform: translateX(-50%);
+            width: 30%;
+            height: clamp(2px, 0.6vw, 4px);
+            border-radius: 4px;
+            background: #5a3d1c;
+        }
+        @keyframes rotateHint {
+            0%, 28%   { transform: rotate(0deg); }
+            60%, 100% { transform: rotate(-90deg); }
+        }
+        .rotate-title { font-size: clamp(20px, 6.4vw, 40px); font-weight: bold; line-height: 1.2; }
+        .rotate-sub   { font-size: clamp(14px, 4.6vw, 26px); opacity: 0.85; }
 
         #bg {
             position: absolute;
@@ -324,18 +410,18 @@
         #guide-wrap {
             position: absolute;
             left: 50%;
-            top: 5%;
-            width: 46vw;
-            height: 30vw;
+            top: 8%;
+            width: 44vw;
+            height: 24vw;
             z-index: 20;
             pointer-events: none;
         }
 
         #genie {
             position: absolute;
-            left: -10%;
-            top: 25%;
-            width: 45%;
+            left: 15%;
+            top: 38%;
+            width: 48%;
             height: auto;
             z-index: 2;
             user-select: none;
@@ -346,9 +432,9 @@
 
         #speech-wrap {
             position: absolute;
-            left: 12%;
+            left: 35%;
             top: 0%;
-            width: 82%;
+            width: 74%;
             aspect-ratio: 520 / 260;
             z-index: 3;
         }
@@ -362,17 +448,21 @@
             user-select: none;
             -webkit-user-drag: none;
             transition: opacity 520ms ease;
+            transform: scaleX(-1);
         }
 
         /* Flex box that centres the typed text inside the white speech area. The
            text lives in an inner block (.dt-inner) so <br> line breaks + the
-           per-letter pop keep working (a flex row would ignore <br>). */
+           per-letter pop keep working (a flex row would ignore <br>). The
+           speech-bubble image is mirrored (scaleX(-1)) so its tail points left
+           toward Gogo; the text is NOT mirrored, and its safe area is shifted
+           right to clear the now-left-side tail. */
         #dialogue-text {
             position: absolute;
-            left: 11%;
-            top: 11%;
-            width: 70%;
-            height: 46%;
+            left: 13%;
+            top: 9%;
+            width: 74%;
+            height: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -381,7 +471,7 @@
             line-height: 1.05;
             text-align: center;
             color: #5a2d0c;
-            padding: 0 0.4em;
+            padding: 0 0.5em;
             overflow: hidden;
             z-index: 4;
             pointer-events: none;
@@ -407,6 +497,38 @@
         .guide-hidden {
             opacity: 0 !important;
         }
+
+        /* =========================================================
+           FIGMA PER-SCREEN LAYOUT MODE
+           When a screen has exact Figma data (FIGMA_GUIDE_LAYOUTS),
+           #guide-wrap is expanded to fill the whole 16:9 stage so that
+           #genie, #speech-wrap and #dialogue-text can be positioned in
+           FRAME-relative percentages — each independent of the others,
+           exactly matching their Figma layer bounds. Screens WITHOUT
+           data keep the legacy wrapper layout (GUIDE_POSES) untouched.
+           ========================================================= */
+        #guide-wrap.figma-pose {
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+        }
+        /* In figma mode the bubble's flip is driven by per-screen data
+           (scaleX / flippedX on #speech-wrap), so drop the baked mirror. */
+        #guide-wrap.figma-pose #dialogue {
+            transform: none;
+        }
+        /* The pointing bob hijacks #genie's transform via keyframes; in
+           figma mode the genie transform is supplied per-screen, so the
+           pose animation must not run. */
+        #guide-wrap.figma-pose #genie.is-pointing {
+            animation: none;
+        }
+
+        /* ---- Layout debug outlines (toggled via setGuideDebugMode) ---- */
+        .debug-genie  { outline: 2px solid red  !important; }
+        .debug-bubble { outline: 2px solid blue !important; }
+        .debug-text   { outline: 2px solid lime !important; }
 
         /* =========================================================
            GAMIFIED DIALOGUE TEXT
@@ -1007,9 +1129,11 @@
            after 4s of inactivity in the tutorial. Position is set in JS. */
         #hand-hint {
             position: absolute;
-            width: 9vw;
+            width: 7.2vw;
             height: auto;
-            z-index: 9;
+            /* Above the genie/bubble (#guide-wrap is z-index 20) so the hint is
+               NEVER hidden behind Gogo when he points at the same jar. */
+            z-index: 30;
             display: none;
             pointer-events: none;
             transform-origin: center top;
@@ -1018,13 +1142,13 @@
         #hand-hint.show { display: block; animation: handTap 0.95s ease-in-out infinite; }
         @keyframes handTap {
             0%, 100% { transform: translate(-50%, 0)     rotate(6deg) scale(1); }
-            50%      { transform: translate(-50%, -16px) rotate(6deg) scale(1.14); }
+            50%      { transform: translate(-50%, -38px) rotate(6deg) scale(1.14); }
         }
 
         /* Tap burst: a "magic ring" that expands out of the tapped container. */
         @keyframes magicRing {
             0%   { transform: scale(.2);  opacity: .9; }
-            100% { transform: scale(2.4); opacity: 0; }
+            100% { transform: scale(2); opacity: 0; }
         }
         .magic-ring {
             position: absolute;
@@ -1043,14 +1167,33 @@
             opacity: 0;
             pointer-events: none;
             background: radial-gradient(ellipse at 50% 40%,
-                var(--tutorial-spill-color) 0%,
-                color-mix(in srgb, var(--tutorial-spill-color) 70%, transparent) 45%,
-                transparent 72%);
+                color-mix(in srgb, var(--tutorial-spill-color) 92%, #fff) 0%,
+                var(--tutorial-spill-color) 38%,
+                color-mix(in srgb, var(--tutorial-spill-color) 70%, transparent) 60%,
+                transparent 78%);
             border-radius: 50%;
-            transition: opacity 320ms ease, transform 320ms ease;
+            /* Soft luminous glow — clean + magical, not a messy splatter. */
+            filter: drop-shadow(0 0 10px rgba(255, 180, 60, 0.65))
+                    drop-shadow(0 0 22px rgba(255, 150, 30, 0.45));
+            transition: opacity 360ms ease, transform 360ms ease;
             transform: scaleX(0.6);
         }
-        #tall-spill.show { opacity: 0.85; transform: scaleX(1); }
+        #tall-spill.show {
+            opacity: 0.85;
+            transform: scaleX(1);
+            /* Gentle breathing glow so the puddle feels alive but stays subtle. */
+            animation: spill-glow 2.6s ease-in-out infinite;
+        }
+        @keyframes spill-glow {
+            0%, 100% {
+                filter: drop-shadow(0 0 9px rgba(255, 180, 60, 0.55))
+                        drop-shadow(0 0 18px rgba(255, 150, 30, 0.38));
+            }
+            50% {
+                filter: drop-shadow(0 0 15px rgba(255, 205, 95, 0.8))
+                        drop-shadow(0 0 30px rgba(255, 165, 40, 0.55));
+            }
+        }
 
         /* =========================================================
            FIGMA SCREEN PLAYER ("The Fish Rescue" storyboard).
@@ -1521,6 +1664,13 @@
     </style>
 </head>
 <body>
+    <!-- Rotate-to-landscape prompt (mobile portrait only — see #rotate-gate CSS). -->
+    <div id="rotate-gate" role="alertdialog" aria-label="Please rotate your device to landscape to play">
+        <div class="rotate-phone"></div>
+        <div class="rotate-title">Please rotate your device</div>
+        <div class="rotate-sub">Turn it sideways to play! 🍊</div>
+    </div>
+
     <div id="game-stage">
         <img id="bg"       src="ASSETS/Background.png"     alt="">
         <img id="table"    src="ASSETS/TAble.png"          alt="">
@@ -1777,6 +1927,7 @@
         const wideLiquid   = document.getElementById('wide-liquid');
         const guideWrap    = document.getElementById('guide-wrap');
         const genie        = document.getElementById('genie');
+        const speechWrap   = document.getElementById('speech-wrap');
         const dialogue     = document.getElementById('dialogue');
         const dialogueText = document.getElementById('dialogue-text');
         const tutorialCelebrate = document.getElementById('tutorial-celebrate');
@@ -1993,6 +2144,11 @@
                             their flows — no entry fn needed. */
                     break;
             }
+
+            // After the entry fn has set its legacy pose, override the guide
+            // with the screen's exact Figma layout when data + mapping exist.
+            // No-op for every state until both are filled in.
+            syncFigmaLayoutForState(stateName);
         }
 
         // Single locked orange-juice palette for the whole tutorial. Mirrors
@@ -2077,6 +2233,10 @@
         const JAR_FULL_SRC   = 'ASSETS/Orange Jar.svg';
         const JAR_DRAIN_SRC  = 'ASSETS/orange_jar_juice_decreasing.svg';
         const JAR_PAUSED_SRC = 'ASSETS/orange_jar_paused_mid.svg';
+        // Level-2 ONLY: same paused pose but the juice level sits ~10% lower
+        // INSIDE the SVG (natural drained look, no cream overlay), so level 2
+        // reads as "more juice used" than level 1. See orange_jar_paused_low.svg.
+        const JAR_PAUSED_LOW_SRC = 'ASSETS/orange_jar_paused_low.svg';
 
         // Warm the cache so the first swap is near-instant.
         (function preloadJuice() {
@@ -2084,6 +2244,7 @@
                 JUICE_FILL_SRC,
                 JAR_DRAIN_SRC,
                 JAR_PAUSED_SRC,
+                JAR_PAUSED_LOW_SRC,
                 WIDE_HALF_SRC,
                 TALL_EMPTY_SRC,
                 TALL_FULL_SRC,
@@ -2221,9 +2382,12 @@
             const jr = juiceRect();
 
             return {
-                // black tap / nozzle position
-                x: jr.left + jr.width * 0.62,
-                y: jr.top  + jr.height * 0.80
+                // black tap / nozzle SPOUT TIP. x was 0.62 — slightly RIGHT of the
+                // visible spout, so the pour stream (and the jar that centres under
+                // this point) read as detached/offset to the right. 0.59 sits on the
+                // spout opening so the stream falls straight from the nozzle.
+                x: jr.left + jr.width * 0.625,
+                y: jr.top  + jr.height * 0.82
             };
         }
 
@@ -2287,11 +2451,15 @@
         // Freeze the drain at the current moment by crossfading to the paused
         // pose. The crossfade softens the small level snap (looping SVG → paused
         // frame). Call this exactly when the fill + stream finish.
-        function freezeDispenserDrain() {
+        // pausedSrc lets level 2 freeze to a LOWER juice pose (JAR_PAUSED_LOW_SRC)
+        // so its dispenser naturally shows ~10% more used than level 1 — the drop
+        // happens inside the SVG, not via a cream overlay.
+        function freezeDispenserDrain(pausedSrc) {
+            const target = pausedSrc || JAR_PAUSED_SRC;
             juice.style.transition = 'opacity 200ms ease';
             juice.style.opacity = '0.45';
             dispenserFreezeTimer = setTimeout(() => {
-                juice.src = JAR_PAUSED_SRC + '?t=' + Date.now();
+                juice.src = target + '?t=' + Date.now();
                 requestAnimationFrame(() => { juice.style.opacity = '1'; });
                 dispenserFreezeTimer = setTimeout(() => { juice.style.transition = ''; }, 220);
             }, 150);
@@ -2378,12 +2546,17 @@
         // jar being discussed (positive = toward tall/left, negative = wide/right).
         // Named poses move the WHOLE guide unit (#guide-wrap). Bubble + text are
         // laid out inside the wrapper by CSS, so we NEVER position them from JS —
-        // only the wrapper moves. `tilt` leans Gogo toward the jar being discussed
-        // (positive = toward tall/left, negative = wide/right).
+        // only the wrapper moves. `tilt` is now ONLY a neutral fallback: the real
+        // lean is computed from live positions in computeGenieTilt() so Gogo
+        // always leans toward the named bottle (e.g. the just-filled one), never
+        // the empty one. (The old fixed signs were inverted vs. the layout.)
+        // `genieLeft` (optional) overrides #genie's CSS left WITHIN the wrap so a
+        // pose can slide Gogo's pointing finger over a specific bottle while the
+        // bubble stays put. pointTall slides him left (finger over the tall glass);
+        // pointWide keeps the CSS default (finger over the wide jar).
         const GUIDE_POSES = {
-            instruction: { left: '50%', top: '5%', width: '46vw', tilt: 0 },
-            pointTall:   { left: '48%', top: '6%', width: '46vw', tilt: 16 },
-            pointWide:   { left: '50%', top: '6%', width: '46vw', tilt: -24 }
+            pointTall: { left: '49%', top: '8%', width: '44vw', genieLeft: '-6%', genieTop: '20%', bubbleLeft: '28%', bubbleTop: '-2%', tilt: 0 },
+            pointWide: { left: '51%', top: '8%', width: '44vw', genieLeft: '15%', tilt: 0 }
         };
 
         // Move the guide unit + lean Gogo.
@@ -2393,23 +2566,277 @@
             genie.style.setProperty('--genie-tilt', (tiltDeg || 0) + 'deg');
             genie.classList.add('is-pointing');
         }
+        // Lean angle (deg) for Gogo to point at `targetEl`, derived from the LIVE
+        // on-screen centres of Gogo and the bottle — not a hardcoded sign.
+        // transform-origin is near his feet, so +angle leans his head right and
+        // -angle leans it left; therefore sign(targetCentreX − genieCentreX)
+        // always points him at the bottle. This is what makes him lean toward the
+        // FILLED bottle on the pour step instead of the empty one.
+        function computeGenieTilt(targetEl, fallbackDeg) {
+            if (!targetEl) return fallbackDeg || 0;
+            const g = genie.getBoundingClientRect();
+            const t = targetEl.getBoundingClientRect();
+            if (!g.width || !t.width) return fallbackDeg || 0;   // not laid out yet
+            const dx = (t.left + t.width / 2) - (g.left + g.width / 2);
+            const MAX_TILT = 16;                                  // gentle, kid-friendly
+            const norm = Math.max(-1, Math.min(1, dx / g.width));
+            return Math.round(norm * MAX_TILT);
+        }
         function applyGuidePose(name) {
             const p = GUIDE_POSES[name];
             if (!p) return;
+            clearFigmaInlineLayout();   // revert any per-screen Figma overrides
             guideWrap.style.left = p.left;
             guideWrap.style.top  = p.top;
-            guideWrap.style.width = p.width || '46vw';
-            genie.style.setProperty('--genie-tilt', (p.tilt || 0) + 'deg');
+            guideWrap.style.width = p.width || '44vw';
+            // Slide Gogo's pointing finger over the named bottle (or clear to the
+            // CSS default when a pose doesn't specify a genie offset).
+            if (p.genieLeft !== undefined) genie.style.left = p.genieLeft;
+            else genie.style.removeProperty('left');
+            if (p.genieTop !== undefined) genie.style.top = p.genieTop;
+            else genie.style.removeProperty('top');
+            // Optionally nudge the bubble so its tail meets Gogo's head for this
+            // pose (else fall back to the shared #speech-wrap CSS position).
+            if (p.bubbleLeft !== undefined) speechWrap.style.left = p.bubbleLeft;
+            else speechWrap.style.removeProperty('left');
+            if (p.bubbleTop !== undefined) speechWrap.style.top = p.bubbleTop;
+            else speechWrap.style.removeProperty('top');
+            // Lean toward the bottle this pose names. Setting guideWrap's position
+            // above + reading getBoundingClientRect here forces a layout, so the
+            // measured genie centre already reflects the new pose placement.
+            const targetEl = name === 'pointTall' ? tallWrap
+                           : name === 'pointWide' ? wideWrap : null;
+            genie.style.setProperty('--genie-tilt', computeGenieTilt(targetEl, p.tilt || 0) + 'deg');
             genie.classList.add('is-pointing');
         }
         function resetGeniePose() {
+            clearFigmaInlineLayout();   // revert any per-screen Figma overrides
             genie.classList.remove('is-pointing');
             genie.style.transform = '';
             genie.style.removeProperty('--genie-tilt');
+            genie.style.removeProperty('left');   // back to CSS default
+            genie.style.removeProperty('top');
+            speechWrap.style.removeProperty('left');
+            speechWrap.style.removeProperty('top');
             // Restore the guide unit to its CSS-default position + size.
             guideWrap.style.left = '';
             guideWrap.style.top  = '';
             guideWrap.style.width = '';
+        }
+
+        /* =========================================================
+           FIGMA PER-SCREEN GUIDE LAYOUT ENGINE
+           -----------------------------------------------------------
+           Drives the LIVE guide unit (#genie / #speech-wrap /
+           #dialogue-text) from exact Figma measurements, one entry per
+           screen. Screens with no data fall back to GUIDE_POSES, so the
+           game keeps working while data is filled in incrementally.
+
+           HOW TO POPULATE (per the "paste measurements" workflow):
+             1. In Figma Dev Mode, read each layer's x / y / w / h (px),
+                the bubble's flip, and the text layer's font-size etc.
+             2. Convert px → frame-% with figmaPx() below (or paste %
+                directly as "43.8%").
+             3. Drop the values into FIGMA_GUIDE_LAYOUTS[nodeId].
+             4. Map the node id to the game moment in STATE_TO_NODE.
+           No values are guessed here — every entry starts null.
+           ========================================================= */
+
+        // The 38 screens, in Figma storyboard order.
+        const FIGMA_SCREEN_ORDER = [
+            "218:6680", "218:9346", "218:8413", "218:8487", "218:8714",
+            "218:10350", "218:8103", "218:8339", "218:7867", "254:566",
+            "254:397", "218:9236", "218:7646", "254:1119", "218:8221",
+            "218:7795", "218:9102", "218:8561", "218:8635", "218:7985",
+            "218:9027", "254:235", "218:9340", "218:8793", "218:7723",
+            "218:9622", "254:981", "218:8911", "218:9288", "218:9343",
+            "254:705", "254:843", "218:9898", "218:10174", "218:10183",
+            "218:10192", "254:318", "254:476"
+        ];
+
+        // The Figma design-frame size. Set these to the real frame W/H so
+        // figmaPx() can convert pixel measurements into responsive %.
+        // (If you paste percentages directly, these are unused.)
+        const FIGMA_FRAME = { width: 1920, height: 1080 };  // TODO: confirm in Figma
+
+        // px → frame-% helper. Usage: left: figmaPx(x, 'w'), top: figmaPx(y, 'h').
+        function figmaPx(value, axis) {
+            const denom = axis === 'h' ? FIGMA_FRAME.height : FIGMA_FRAME.width;
+            return (value / denom * 100).toFixed(2) + '%';
+        }
+
+        // Per-screen layout, keyed by Figma node id. FRAME-relative values.
+        //   genie  : { left, top, width, height, rotation, scaleX, scaleY, flippedX }
+        //   bubble : { left, top, width, height, rotation, scaleX, scaleY, flippedX }
+        //   text   : { left, top, width, height, fontSize, lineHeight,
+        //              textAlign, alignItems, justifyContent, padding }
+        // The text box is given in FRAME-% (its own Figma layer bounds); the
+        // engine reprojects it into the bubble's local space so text bounds
+        // stay independent of the bubble image. Requires numeric bubble w+h.
+        // null  = no data yet → legacy GUIDE_POSES is used for that screen.
+        const FIGMA_GUIDE_LAYOUTS = {
+            "218:6680": null,  "218:9346": null,  "218:8413": null,
+            "218:8487": null,  "218:8714": null,  "218:10350": null,
+            "218:8103": null,  "218:8339": null,  "218:7867": null,
+            "254:566": null,   "254:397": null,   "218:9236": null,
+            "218:7646": null,  "254:1119": null,  "218:8221": null,
+            "218:7795": null,  "218:9102": null,  "218:8561": null,
+            "218:8635": null,  "218:7985": null,  "218:9027": null,
+            "254:235": null,   "218:9340": null,  "218:8793": null,
+            "218:7723": null,  "218:9622": null,  "254:981": null,
+            "218:8911": null,  "218:9288": null,  "218:9343": null,
+            "254:705": null,   "254:843": null,   "218:9898": null,
+            "218:10174": null, "218:10183": null, "218:10192": null,
+            "254:318": null,   "254:476": null
+        };
+
+        // Maps a live game state (GAME_STATES key) → Figma node id, so the
+        // running flow pulls the right per-screen layout. Fill in as the
+        // node↔moment mapping is confirmed. Unmapped states keep legacy poses.
+        const STATE_TO_NODE = {
+            // e.g. TUTORIAL_START: "218:6680",
+        };
+
+        // Apply a box of style values to an element (skips undefined keys).
+        function applyBox(el, box) {
+            if (!el || !box) return;
+            if (box.left            !== undefined) el.style.left = box.left;
+            if (box.top             !== undefined) el.style.top = box.top;
+            if (box.width           !== undefined) el.style.width = box.width;
+            if (box.height          !== undefined) el.style.height = box.height;
+            if (box.fontSize        !== undefined) el.style.fontSize = box.fontSize;
+            if (box.lineHeight      !== undefined) el.style.lineHeight = box.lineHeight;
+            if (box.textAlign       !== undefined) el.style.textAlign = box.textAlign;
+            if (box.alignItems      !== undefined) el.style.alignItems = box.alignItems;
+            if (box.justifyContent  !== undefined) el.style.justifyContent = box.justifyContent;
+            if (box.padding         !== undefined) el.style.padding = box.padding;
+        }
+
+        // Build a CSS transform from a box's rotation/scale/flip fields.
+        function transformFromBox(box) {
+            if (!box) return '';
+            const rotation = box.rotation || '0deg';
+            let scaleX = box.scaleX === undefined ? 1 : box.scaleX;
+            const scaleY = box.scaleY === undefined ? 1 : box.scaleY;
+            if (box.flippedX) scaleX = -Math.abs(scaleX);   // mirror (e.g. tail side)
+            return `rotate(${rotation}) scale(${scaleX}, ${scaleY})`;
+        }
+
+        // Remove every inline style the Figma engine set, and drop figma mode,
+        // so a subsequent legacy-pose screen renders from clean CSS defaults.
+        function clearFigmaInlineLayout() {
+            guideWrap.classList.remove('figma-pose');
+            [genie, speechWrap, dialogueText].forEach(el => {
+                if (!el) return;
+                ['left', 'top', 'width', 'height', 'transform',
+                 'font-size', 'line-height', 'text-align',
+                 'align-items', 'justify-content', 'padding']
+                    .forEach(prop => el.style.removeProperty(prop));
+            });
+        }
+
+        // Position the live guide unit from a screen's exact Figma layout.
+        // Returns true if data existed and was applied; false otherwise (so
+        // the caller can fall back to a legacy pose).
+        function applyFigmaGuideLayout(nodeId) {
+            const layout = FIGMA_GUIDE_LAYOUTS[nodeId];
+            if (!layout) {
+                console.warn('[figma-layout] no data for screen ' + nodeId + ' — using legacy pose');
+                return false;
+            }
+
+            // Enter frame-relative mode: #guide-wrap fills the stage so each
+            // child's % is measured against the 16:9 frame, like Figma.
+            guideWrap.classList.add('figma-pose');
+
+            if (layout.genie) {
+                genie.classList.remove('is-pointing');
+                applyBox(genie, layout.genie);
+                genie.style.transform = transformFromBox(layout.genie);
+            }
+
+            if (layout.bubble) {
+                applyBox(speechWrap, layout.bubble);
+                speechWrap.style.transform = transformFromBox(layout.bubble);
+            }
+
+            // Reproject the text's frame-% bounds into the bubble's local box,
+            // so the text sits in its own Figma area (not the bubble centre)
+            // and the bubble tail keeps its space. Needs numeric bubble w+h.
+            if (layout.text && layout.bubble) {
+                const bl = parseFloat(layout.bubble.left);
+                const bt = parseFloat(layout.bubble.top);
+                const bw = parseFloat(layout.bubble.width);
+                const bh = parseFloat(layout.bubble.height);
+                if ([bl, bt, bw, bh].every(n => !isNaN(n)) && bw > 0 && bh > 0) {
+                    const tl = parseFloat(layout.text.left);
+                    const tt = parseFloat(layout.text.top);
+                    const tw = parseFloat(layout.text.width);
+                    const th = parseFloat(layout.text.height);
+                    applyBox(dialogueText, {
+                        left:           ((tl - bl) / bw * 100).toFixed(2) + '%',
+                        top:            ((tt - bt) / bh * 100).toFixed(2) + '%',
+                        width:          (tw / bw * 100).toFixed(2) + '%',
+                        height:         (th / bh * 100).toFixed(2) + '%',
+                        fontSize:       layout.text.fontSize,
+                        lineHeight:     layout.text.lineHeight,
+                        textAlign:      layout.text.textAlign,
+                        alignItems:     layout.text.alignItems,
+                        justifyContent: layout.text.justifyContent,
+                        padding:        layout.text.padding
+                    });
+                } else {
+                    console.warn('[figma-layout] ' + nodeId +
+                        ': bubble needs numeric left/top/width/height to place text — text left at CSS default');
+                }
+            }
+            return true;
+        }
+
+        // Resolve the current game state to a node and apply its layout if
+        // data exists. Guarded: does nothing until BOTH the mapping and the
+        // measurements are filled in, so it never disturbs the working flow.
+        function syncFigmaLayoutForState(stateName) {
+            const nodeId = STATE_TO_NODE[stateName];
+            if (nodeId && FIGMA_GUIDE_LAYOUTS[nodeId]) {
+                applyFigmaGuideLayout(nodeId);
+            }
+        }
+
+        // ---- Debug: outline the live guide boxes (and the fs-* scaffold) ----
+        const DEBUG_FIGMA_GUIDE_LAYOUT = false;
+        function setGuideDebugMode(enabled) {
+            genie       && genie.classList.toggle('debug-genie', enabled);
+            speechWrap  && speechWrap.classList.toggle('debug-bubble', enabled);
+            dialogueText&& dialogueText.classList.toggle('debug-text', enabled);
+            document.getElementById('fs-char')?.classList.toggle('debug-genie', enabled);
+            document.getElementById('fs-bubble')?.classList.toggle('debug-bubble', enabled);
+            document.getElementById('fs-bubble-text')?.classList.toggle('debug-text', enabled);
+        }
+
+        // Coverage report: which of the 38 screens have layout data yet.
+        function validateFigmaGuideLayouts() {
+            return FIGMA_SCREEN_ORDER.map(screenId => {
+                const layout = FIGMA_GUIDE_LAYOUTS[screenId];
+                return {
+                    screenId,
+                    hasLayout: !!layout,
+                    hasGenie: !!layout?.genie,
+                    hasBubble: !!layout?.bubble,
+                    hasText: !!layout?.text,
+                    mappedState: Object.keys(STATE_TO_NODE)
+                        .find(s => STATE_TO_NODE[s] === screenId) || null,
+                    genieLeft: layout?.genie?.left,
+                    genieTop: layout?.genie?.top,
+                    genieWidth: layout?.genie?.width,
+                    bubbleLeft: layout?.bubble?.left,
+                    bubbleTop: layout?.bubble?.top,
+                    bubbleWidth: layout?.bubble?.width,
+                    textLeft: layout?.text?.left,
+                    textWidth: layout?.text?.width,
+                    textFontSize: layout?.text?.fontSize
+                };
+            });
         }
 
         // Guard: if Gogo's box overlaps either jar, lift him up (and nudge
@@ -2472,7 +2899,7 @@
 
         // ----- Tutorial idle hand hint (hand nudge.png) -----
         const handHint = document.getElementById('hand-hint');
-        const TUTORIAL_IDLE_HAND_MS = 4000;
+        const TUTORIAL_IDLE_HAND_MS = 0;   // show on the interactive element immediately (no idle wait)
         let tutorialIdleTimer = null;
         let tutorialIdleArmed = false;
         const TUTORIAL_IDLE_EVENTS = ['mousemove', 'touchstart', 'click', 'keydown'];
@@ -2503,7 +2930,7 @@
         }
         function resetTutorialIdleHand() {
             if (!tutorialIdleArmed) return;
-            handHint.classList.remove('show');
+            if (activeTapTarget) placeHandOnTarget();   // keep hand on target, do not hide
             armTutorialIdleTimer();
         }
         function stopTutorialIdleHand() {
@@ -2515,22 +2942,54 @@
                 document.removeEventListener(ev, resetTutorialIdleHand));
         }
 
+        // Pending timers from the LAST instruction. A new instruction must cancel
+        // them, otherwise a stale instruction's late "enable + glow the jar"
+        // callback fires afterwards and points the hand hint at the WRONG jar
+        // (e.g. boot's "tap the tall jar" callback firing after level-2 already
+        // asked for the wide jar). setDialogue() also clears the shared typing
+        // timer, so an in-flight older line can never reach its onDone either.
+        let instructionTimers = [];
+        function clearInstructionTimers() {
+            instructionTimers.forEach(t => clearTimeout(t));
+            instructionTimers = [];
+        }
+
         // `targetEl` (optional): the container to glow once interaction enables.
         function showInstructionThenEnable(text, targetEl) {
+            clearInstructionTimers();
             gameState.canInteract = false;
             clearActiveTapTargets();
-            applyGuidePose('instruction');   // neutral, centred pose for instructions
+            // Lean Gogo toward the jar the child must tap next (defaults to the
+            // wide-pointing pose for any other target).
+            if (targetEl === tallWrap) {
+                applyGuidePose('pointTall');
+            } else if (targetEl === wideWrap) {
+                applyGuidePose('pointWide');
+            } else {
+                applyGuidePose('pointWide');
+            }
             showStageGuide();
 
+            // Show the hand hint + glow ON the target jar RIGHT AWAY (while Gogo is
+            // still pointing), so the child sees exactly where to tap the moment the
+            // instruction appears — no dead gap where the genie has left but the hand
+            // hasn't arrived. The hand is z-index 30 (above Gogo) so it is never
+            // hidden behind him. Interaction stays gated until the line is read.
+            if (targetEl) setActiveTapTarget(targetEl);
+
             setDialogue(text, () => {
-                setTimeout(() => {
+                const t1 = setTimeout(() => {
                     hideGuide();
 
-                    setTimeout(() => {
+                    const t2 = setTimeout(() => {
                         gameState.canInteract = true;
+                        // Re-assert the hand on the target in case anything cleared it
+                        // during the hold (idempotent — same jar, no flicker).
                         if (targetEl) setActiveTapTarget(targetEl);
                     }, 450);
+                    instructionTimers.push(t2);
                 }, INSTRUCTION_HOLD_MS);
+                instructionTimers.push(t1);
             });
         }
 
@@ -2565,9 +3024,13 @@
         //                   jar height). Small = jar stays high under the spout
         //                   and grounded; large = jar sinks (used to float the
         //                   short wide jar below the counter — now reduced).
+        // tapYOffset is tuned per jar so BOTH rest their bottom on the SAME lower
+        // front step under the nozzle (tall ≈ 0.55·h, wide is shorter so it needs
+        // a larger drop ≈ 1.35·h to reach the same step instead of floating at the
+        // dispenser base).
         const CONTAINER_ANCHORS = {
             tall: { mouthX: 0.50, mouthY: 0.02, tapYOffset: 0.55 },
-            wide: { mouthX: 0.50, mouthY: 0.08, tapYOffset: 0.12 }
+            wide: { mouthX: 0.50, mouthY: 0.08, tapYOffset: 1.35 }
         };
 
         // Shared "magically guided" glide of a jar under the dispenser tap.
@@ -3076,9 +3539,12 @@
             tutorialVisualState.dispenser    = 'paused';
             tutorialVisualState.tall         = 'filled';
             tutorialVisualState.wide         = 'empty';
-            // No CSS spill puddle — the overflow reads as clean magical sparkles
-            // (set false so applyTutorialVisualState never paints the puddle).
-            tutorialVisualState.spillVisible = false;
+            // Keep the brim-full tall jar AND a clean glowing spill puddle visible
+            // for the whole proof/quiz (until the level ends) — the overflow stays
+            // on screen instead of vanishing, so the child can see the juice that
+            // could not fit. The puddle is a soft magical glow (see #tall-spill),
+            // not a messy splatter.
+            tutorialVisualState.spillVisible = true;
         }
 
         // Apply the frozen proof state to the DOM WITHOUT replaying any art:
@@ -3156,9 +3622,11 @@
         // and a single soft chime. (The odd extra "spill drops" particle burst
         // was removed — the SVG already paints its own splash.)
         function triggerOverflowMagic() {
-            // Clean + magical: NO messy CSS spill puddle. The overflow beat is
-            // conveyed by a sparkle burst over BOTH jars + a soft chime (the SVG
-            // already paints its own splash during the animation).
+            // Clean + magical: a soft glowing spill puddle pools at the tall jar's
+            // base (the juice that overflowed) and STAYS until the level ends, plus
+            // a sparkle burst over BOTH jars + a soft chime. The puddle is a gentle
+            // luminous glow (see #tall-spill), gamified — not a messy splatter.
+            showOverflowSpill();
             createSparkles(tallWrap, 20);
             createSparkles(wideWrap, 20);
             playSound('success');         // gentle by design — played once
@@ -3179,10 +3647,12 @@
             // jars. Compress the target width by this fraction so the depicted
             // jar gap matches the real on-table gap.
             gapCompressPct: 0.14,
-            // Horizontal mirror of the overflow scene. Set false (transform:none)
-            // per request. If the pour scene's jars end up on the WRONG side
-            // versus the real tall-left / wide-right table, set this back to true.
-            mirror: false
+            // Horizontal mirror of the overflow scene. The asset is authored
+            // wide-LEFT / tall-RIGHT, but the real table is tall-LEFT / wide-RIGHT,
+            // so we MUST mirror it — otherwise the receiving tall glass renders on
+            // the far right (~70%) instead of where the real tall jar rests (~58%),
+            // and the jars appear to jump sides when the animation starts.
+            mirror: true
         };
 
         // Lock the overflow scene to the REAL jars: the overlay box is the
@@ -3195,31 +3665,36 @@
         // than the real tall/wide jars, so widen the overlay to push them apart
         // until the depicted gap matches the real on-table gap. Bump toward 1.42
         // if the gap still looks too small.
-        const WIDE_OVERFLOW_WIDTH_FACTOR = 1.45;
+        // The overflow SVG's RECEIVER (tall) glass occupies these fractions of the
+        // overlay box AFTER the scaleX(-1) mirror. Derived from the SVG's tallClip
+        // (x 252..347, y 200..441 inside viewBox "34 -34 360 500"): un-mirrored
+        // x = 0.606..0.869 -> mirrored x = 0.131..0.394; y bottom = 0.95. We size +
+        // place the overlay so this drawn glass maps EXACTLY onto the real tall jar,
+        // so the depicted jars read at the SAME size as TAll/Wide Container.svg (no
+        // scale jump) and the pourer scales in proportion.
+        const OVERFLOW_RECEIVER = { fx0: 0.1306, fx1: 0.3944, fy1: 0.95 };
 
         function fitOverflowSvgToRealJars() {
             const stageBox = stage.getBoundingClientRect();
-            const tallBox = tallWrap.getBoundingClientRect();
-            const wideBox = wideWrap.getBoundingClientRect();
+            const tallBox  = tallWrap.getBoundingClientRect();
 
-            const realLeft = Math.min(tallBox.left, wideBox.left) - stageBox.left;
-            const realRight = Math.max(tallBox.right, wideBox.right) - stageBox.left;
-            const realBottom = Math.max(tallBox.bottom, wideBox.bottom) - stageBox.top;
+            const tallLeft   = tallBox.left   - stageBox.left;
+            const tallBottom = tallBox.bottom - stageBox.top;
+            const r = OVERFLOW_RECEIVER;
 
-            const realWidth = realRight - realLeft;
-
-            // Widen the overlay so the SVG's internal jars separate more, centred
-            // on the real jar zone with the baseline on the real jar bottoms.
-            const width = realWidth * WIDE_OVERFLOW_WIDTH_FACTOR;
+            // Width so the drawn receiver glass == the REAL tall jar width; box
+            // aspect equals the SVG aspect so object-fit:fill will not distort it.
+            const width  = tallBox.width / (r.fx1 - r.fx0);
             const height = width / WIDE_TO_TALL_OVERFLOW_ASPECT;
+            // Place so the receiver glass lands on the real tall jar (left + bottom).
+            const left = tallLeft   - r.fx0 * width;
+            const top  = tallBottom - r.fy1 * height;
 
-            const centerX = realLeft + realWidth / 2;
-
-            htmlPourImg.style.left = `${centerX - width / 2}px`;
-            htmlPourImg.style.top = `${realBottom - height}px`;
+            htmlPourImg.style.left = `${left}px`;
+            htmlPourImg.style.top = `${top}px`;
             htmlPourImg.style.width = `${width}px`;
             htmlPourImg.style.height = `${height}px`;
-            htmlPourImg.style.objectFit = 'contain';
+            htmlPourImg.style.objectFit = 'fill';
             htmlPourImg.style.objectPosition = 'center bottom';
             // Keep the horizontal mirror (asset is wide-LEFT/tall-RIGHT; the real
             // table is tall-LEFT/wide-RIGHT). Set OVERFLOW_SVG_ALIGN.mirror = false
@@ -3491,7 +3966,7 @@
         // front table edge regardless of screen height. NOT derived from the
         // nozzle. returnWide() clears the transform after.
         const WIDE_FILL_TARGET = {
-            leftPct: 33,
+            leftPct: 31,
             bottomPct: 14
         };
 
@@ -3500,21 +3975,23 @@
             return moveWideToBottomFillSpot();
         }
 
-        // Glide the wide jar to the fixed lower/front-table fill spot (transform
-        // only; the default #wide-wrap CSS position is never changed).
+        // Glide the wide jar to the fill spot (transform only; the default
+        // #wide-wrap CSS position is never changed). The jar STAYS on the table
+        // surface — we keep its current vertical level (its home bottom, which
+        // already rests on the table) and only move it horizontally toward the
+        // nozzle. bottomPct is no longer used so the jar never floats below the
+        // table on tall screens.
         function moveWideToBottomFillSpot() {
             return new Promise(resolve => {
                 const stageBox = stage.getBoundingClientRect();
                 const wr = wideWrap.getBoundingClientRect();
 
                 const currentLeft = wr.left - stageBox.left;
-                const currentBottom = stageBox.bottom - wr.bottom;
 
                 const targetLeft = stageBox.width * (WIDE_FILL_TARGET.leftPct / 100);
-                const targetBottom = stageBox.height * (WIDE_FILL_TARGET.bottomPct / 100);
 
                 const dx = targetLeft - currentLeft;
-                const dy = currentBottom - targetBottom;
+                const dy = 0;   // keep the jar on the table surface (no vertical drop)
 
                 wideTargetTransform = `translate(${dx}px, ${dy}px)`;
 
@@ -3540,11 +4017,11 @@
             const wr = wideWrap.getBoundingClientRect();
 
             const from = toStage(tap.x, tap.y);
-            // Reach DEEP inside the jar (toward the juice), not just the rim.
-            const to = toStage(
-                wr.left + wr.width * 0.50,
-                wr.top + wr.height * 0.62
-            );
+            // Reach all the way to the BOTTOM of the jar so the stream visibly
+            // touches the base (was 0.62 — too short, left a gap above the juice).
+            // Vertical stream: same x as the tap so the juice falls straight DOWN
+            // from the spout into the jar (the jar is centred under the tap point).
+            const to = toStage(tap.x, wr.top + wr.height * 0.95);
 
             const dx = to.x - from.x;
             const dy = to.y - from.y;
@@ -3555,7 +4032,7 @@
 
             const stream = document.createElement('div');
             stream.className = 'fx-pour-stream';
-            stream.style.left = `${from.x}px`;
+            stream.style.left = `${from.x - streamW / 2}px`;
             stream.style.top = `${from.y}px`;
             stream.style.width = `${streamW}px`;
             stream.style.height = '0px';
@@ -3603,9 +4080,11 @@
                 setDispenserFull();
                 await wait(60);
 
-                // 1) Glide the wide jar to the fixed front/bottom-table fill spot
-                //    (NOT under the nozzle, NOT in-place).
-                await moveWideToBottomFillSpot();
+                // 1) Glide the wide jar to the SAME front/lower-step spot under the
+                //    nozzle that the tall jar uses in level 1, so both fills look
+                //    identical (was a horizontal-only move that left it floating at
+                //    the dispenser base).
+                await moveContainerToTap(wideWrap, 'wide');
 
                 // 2) Pour stream from the nozzle; dispenser plays the animated
                 //    drain SVG, frozen below when the wide fill + stream finish.
@@ -3624,9 +4103,11 @@
 
                 // 4) Stop the stream + freeze the dispenser drain together, then
                 //    celebrate. The dispenser juice decreases NATURALLY via the
-                //    drain SVG (JAR_DRAIN_SRC → JAR_PAUSED_SRC) — no fake mask.
+                //    drain SVG; level 2 freezes to the LOWER juice pose
+                //    (JAR_PAUSED_LOW_SRC) so it shows ~10% more used than level 1 —
+                //    the drop is inside the SVG art, no cream overlay/sheet.
                 stopPourStream();
-                freezeDispenserDrain();
+                freezeDispenserDrain(JAR_PAUSED_LOW_SRC);
                 createSparkles(wideWrap, 18);
                 playSound('success');
                 await wait(300);
@@ -5767,8 +6248,22 @@
             enterMainComplete,
             mgResetAll,
             MG_LARGE,
-            MG_SMALL
+            MG_SMALL,
+            // ---- Figma per-screen guide layout engine ----
+            FIGMA_SCREEN_ORDER,
+            FIGMA_GUIDE_LAYOUTS,
+            STATE_TO_NODE,
+            FIGMA_FRAME,
+            figmaPx,
+            applyFigmaGuideLayout,
+            syncFigmaLayoutForState,
+            validateFigmaGuideLayouts,
+            setGuideDebugMode
         };
+
+        // Bootstrap layout debug + coverage report (off by default).
+        setGuideDebugMode(DEBUG_FIGMA_GUIDE_LAYOUT);
+        try { console.table(validateFigmaGuideLayouts()); } catch (e) {}
     })();
     </script>
 </body>
