@@ -4123,16 +4123,9 @@
         // settles on the front step so it reads as grounded under the nozzle.
         // -0.01 lifts it ~5% up from the earlier 4%-down spot (which sat too low /
         // clipped), so it rests just above the front step.
-        // restOnCounter: keep the container planted on the table at its HOME
-        //   vertical baseline and glide it ONLY horizontally under the spout, so
-        //   it never sinks onto the lower floor step (the old tapYOffset drop sent
-        //   the jar far below the counter, with a giant disconnected stream).
-        //   fillNudgePct optionally nudges it down a touch (fraction of STAGE
-        //   height) so a tall glass reads as sitting under the tap rather than
-        //   overlapping the dispenser body.
         const CONTAINER_ANCHORS = {
-            tall: { mouthX: 0.50, mouthY: 0.02, restOnCounter: true, fillNudgePct: 0.04 },
-            wide: { mouthX: 0.50, mouthY: 0.08, restOnCounter: true, fillNudgePct: 0.00 }
+            tall: { mouthX: 0.50, mouthY: 0.02, tapYOffset: 0.55 },
+            wide: { mouthX: 0.50, mouthY: 0.08, tapYOffset: 1.35, dropPct: -0.01 }
         };
 
         // Shared "magically guided" glide of a jar under the dispenser tap.
@@ -4146,17 +4139,10 @@
                 const tap = getTapPoint();
 
                 const dx = tap.x - (wr.left + wr.width  * a.mouthX);
-                let   dy;
-                if (a.restOnCounter) {
-                    // Stay on the counter (home baseline); only a small optional
-                    // downward nudge. Never drop onto the lower floor step.
-                    dy = (a.fillNudgePct || 0) * stageRect().height;
-                } else {
-                    dy = (tap.y + wr.height * a.tapYOffset) - (wr.top + wr.height * a.mouthY);
-                    // Optional extra drop (fraction of stage height) so the jar sits
-                    // a touch lower on the front step.
-                    if (a.dropPct) dy += stageRect().height * a.dropPct;
-                }
+                let   dy = (tap.y + wr.height * a.tapYOffset) - (wr.top + wr.height * a.mouthY);
+                // Optional extra drop (fraction of stage height) so the jar sits
+                // a touch lower on the front step.
+                if (a.dropPct) dy += stageRect().height * a.dropPct;
 
                 const target = `translate(${dx}px, ${dy}px)`;
                 // Store the PURE translate so the success bounce / return can
