@@ -2,3 +2,6 @@
 node_modules/
 
 .vercel
+
+# Local dev/debug scratch (puppeteer probes, screenshots, scratch output)
+_*

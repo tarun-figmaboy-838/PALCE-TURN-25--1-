@@ -21,15 +21,15 @@
 
 <!-- Static FULL state: shown AFTER the color_matched fill animation completes,
      so the liquid starts full; the optional top-off animations only run if
-     triggered (begin="indefinite"). -->
+     triggered (begin="0s"). -->
 <g clip-path="url(#glassInnerFullClipNew)">
   <rect x="-2" y="-2" width="88" height="113" fill="url(#watermelonJuiceGradientNew)">
-    <animate attributeName="y" from="109" to="-2" dur="2.8s" begin="indefinite" fill="freeze"/>
-    <animate attributeName="height" from="0" to="113" dur="2.8s" begin="indefinite" fill="freeze"/>
+    <animate attributeName="y" from="109" to="-2" dur="2.8s" begin="0s" fill="freeze"/>
+    <animate attributeName="height" from="0" to="113" dur="2.8s" begin="0s" fill="freeze"/>
   </rect>
   <rect x="9" y="-2" width="12" height="113" fill="white" opacity="0.12">
-    <animate attributeName="y" from="109" to="-2" dur="2.8s" begin="indefinite" fill="freeze"/>
-    <animate attributeName="height" from="0" to="113" dur="2.8s" begin="indefinite" fill="freeze"/>
+    <animate attributeName="y" from="109" to="-2" dur="2.8s" begin="0s" fill="freeze"/>
+    <animate attributeName="height" from="0" to="113" dur="2.8s" begin="0s" fill="freeze"/>
   </rect>
 </g>
 <path opacity="0.29" fill-rule="evenodd" clip-rule="evenodd" d="M7.26599 11.3494C7.26599 11.3494 12.8462 12.6162 24.0083 12.6162C35.1696 12.6162 63.6109 11.8547 64.6528 12.6162C65.6947 13.3777 66.0832 17.1986 63.0061 19.1055C59.9291 21.0116 40.8566 22.7211 36.2459 32.3496C31.6352 41.979 32.2691 83.8651 33.9891 90.2189C35.7091 96.5734 39.0713 102.197 42.9704 103.583C46.8695 104.969 24.1911 106.361 17.0163 93.7984C9.84153 81.2367 4.77962 9.91802 7.26599 11.3494Z" fill="white"/>

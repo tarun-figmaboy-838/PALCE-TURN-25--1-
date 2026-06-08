@@ -25,6 +25,20 @@
             --tutorial-spill-color:  #F28A00;
         }
 
+        /* WATERMELON post-tutorial round: recolour the shared juice FX (stream,
+           bubbles, spill, drops) to the watermelon red-orange, and hue-shift the
+           orange pour/overflow SVG overlays so they read as watermelon juice. */
+        body.phase-watermelon {
+            --tutorial-juice-light: #F75C2F;
+            --tutorial-juice-mid:   #F54803;
+            --tutorial-juice-dark:  #C42402;
+            --tutorial-stream-color: #F54803;
+            --tutorial-spill-color:  #E73202;
+        }
+        body.phase-watermelon #html-pour-img {
+            filter: hue-rotate(-22deg) saturate(1.35) brightness(0.97);
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -197,7 +211,10 @@
             width: 5.4%;
             z-index: 5;
             cursor: pointer;
-            transform-origin: center center;
+            /* center bottom keeps the jar planted on the table during the fill
+               success scale-pulse / glide (center center made the base lift and
+               re-seat — the "pivot shift" BUG #3). Matches the main game. */
+            transform-origin: center bottom;
             user-select: none;
             -webkit-user-drag: none;
         }
@@ -206,6 +223,14 @@
             position: relative;
             width: 100%;
             display: block;
+            /* Pin to the tall SVG viewBox (96×258) so empty↔fill↔full src swaps
+               never change the box height (no resize/jump during fill). */
+            aspect-ratio: 96 / 258;
+            /* Bottom-anchor the art so SHORTER containers (e.g. the watermelon
+               round) rest on the table instead of floating mid-box. */
+            object-fit: contain;
+            object-position: center bottom;
+            height: auto;
             z-index: 3;
             pointer-events: none;
             user-select: none;
@@ -329,7 +354,9 @@
             width: 8.7%;
             z-index: 5;
             cursor: pointer;
-            transform-origin: center center;
+            /* See #tall-wrap: pivot from the base so the jar never lifts/re-seats
+               during the fill pulse or glide (BUG #3). */
+            transform-origin: center bottom;
             user-select: none;
             -webkit-user-drag: none;
         }
@@ -337,6 +364,11 @@
         #wide {
             position: relative;
             width: 100%;
+            /* Pin to the wide SVG viewBox (178×195) so empty↔half↔fill src swaps
+               never resize the box (all wide art shares this viewBox). */
+            aspect-ratio: 178 / 195;
+            object-fit: contain;
+            object-position: center bottom;
             height: auto;
             z-index: 3;
             pointer-events: none;
@@ -435,7 +467,13 @@
             left: 35%;
             top: 0%;
             width: 74%;
-            aspect-ratio: 520 / 260;
+            /* Must equal the REAL Dialoage Box.svg aspect (856×385 = 2.2234).
+               The old 520/260 (=2.0) letterboxed the SVG inside this box, so the
+               bubble drifted and the text overlay (positioned relative to THIS
+               box) no longer matched the white area — the source of the "negative
+               space" / off-centre text. Matching the aspect means the SVG fills
+               the box exactly, so SVG fractions == box fractions. */
+            aspect-ratio: 856 / 385;
             z-index: 3;
         }
 
@@ -461,33 +499,84 @@
            left-right space (no centred gap on the sides). It stays vertically
            centred — the white rounded rect sits in the upper ~75% of the art
            (tail below), so centring on ~40% of #speech-wrap (top:20% h:40%) lands
-           the text in the middle of the white. */
+           the text in the middle of the white.
+           MEASURED (see _measure_bubble.js): the white interior of the bubble
+           SVG spans y≈10%–47% and x≈6%–92% of the 856×385 viewBox; below 47% is
+           just the tail. With #speech-wrap now matching the SVG aspect, these
+           fractions map 1:1 onto the box, so the text region is placed directly
+           over the white area and CENTRED in it (both axes) — no drift, no blank
+           space, multi-line safe. */
+        /* Text region inside the white bubble area. A larger usable box (wider +
+           taller) with padding and overflow:visible so long copy is never cropped
+           (the "Pour the juice carefully…" 3-liner used to clip). The OUTER box
+           flex-centres the text block both axes (vertically centred in the white
+           area); the INNER .dt-inner is left-aligned. */
         #dialogue-text {
             position: absolute;
-            left: 15%;
-            top: 13%;
-            width: 80%;
-            height: 40%;
+            /* Cover the FULL white interior of the bubble (measured x≈6%–92%,
+               y≈10%–47% of the 856×385 art). The copy is auto-sized in JS
+               (fitDialogueText) to fill this box, so short lines no longer leave a
+               big blank "negative space" and long lines never crop. */
+            left: 6.5%;
+            top: 9.5%;
+            width: 87%;
+            height: 38%;
             display: flex;
             align-items: center;
-            justify-content: flex-start;
-            font-size: clamp(24px, 2vw, 38px);
+            justify-content: center;
+            padding: clamp(4px, 0.5vw, 10px) clamp(8px, 1vw, 18px);
             font-weight: 900;
-            line-height: 1.1;
-            text-align: left;
             color: #5a2d0c;
-            padding: 0 0.5em;
-            overflow: hidden;
+            box-sizing: border-box;
+            overflow: visible;
             z-index: 4;
             pointer-events: none;
             transition: opacity 520ms ease;
         }
+        /* Inner text block: centred AS A GROUP by the flex parent, but each line
+           is LEFT-aligned. width:fit-content hugs the longest line so there is no
+           oversized fixed box / side negative-space, and it is never mirrored. */
         #dialogue-text .dt-inner {
+            /* Full-width so the copy WRAPS across the whole white area and uses
+               the left-right space (no narrow column with big side gaps). */
             width: 100%;
-            font-size: inherit;
+            max-width: 100%;
+            margin: 0;
+            text-align: center;
+            line-height: 1.24;
+            /* ONE uniform type size for EVERY dialogue on EVERY screen (no
+               per-line auto-fit). Scales only with the viewport, so the same line
+               looks identical across screens. */
+            font-size: clamp(20px, 2.05vw, 34px);
             font-weight: inherit;
-            line-height: inherit;
             color: inherit;
+            /* Wrap ONLY at spaces — never split a word across lines (that made a
+               full word "look separate"). The bubble itself grows to fit the copy
+               (applyDialogueMode tiers), so whole words always have room. */
+            white-space: normal;
+            overflow-wrap: normal;
+            word-break: keep-all;
+            hyphens: none;
+        }
+
+        /* =========================================================
+           DYNAMIC BUBBLE SIZING — applyDialogueMode() adds one of these classes
+           to #speech-wrap based on the copy length so the bubble grows/shrinks to
+           fit: short = tight, medium = default, long = wide/tall. This removes the
+           blank "negative space" short lines used to leave, and gives long copy
+           room so nothing crops. The bubble keeps its SVG aspect (856/385).
+           ========================================================= */
+        #speech-wrap.bubble-short  { width: 56%; }
+        #speech-wrap.bubble-medium { width: 74%; }
+        #speech-wrap.bubble-long   { width: 90%; }
+        /* Long copy gets a touch more vertical room in the white area so 3 wrapped
+           lines at the uniform size fit without crowding. */
+        #speech-wrap.bubble-long #dialogue-text {
+            top: 8.5%;
+            height: 42%;
+        }
+        #speech-wrap.bubble-long #dialogue-text .dt-inner {
+            line-height: 1.22;
         }
         /* Gentle continuous "pointing" bob during explanations. The lean angle
            is supplied per-pose via the --genie-tilt custom property. */
@@ -541,6 +630,9 @@
            whole line gives a soft pop when a new line begins. Tuned to a
            neutral, readable pace for early readers — lively, never frantic.
            ========================================================= */
+        /* Each WORD is an unbreakable inline-block (letters inside never wrap),
+           so the line only breaks at spaces between words. */
+        #dialogue-text .dt-word { display: inline-block; white-space: nowrap; }
         #dialogue-text .char-pop {
             display: inline-block;
             transform-origin: center bottom;
@@ -1053,6 +1145,177 @@
         }
 
         /* =========================================================
+           PRE-LBD INTRO TRANSITION SCREEN
+           A polished dim/blur backdrop shown after the tutorial and before
+           the LBD/main game. While .show is set it blocks ALL input
+           (pointer-events:auto over the whole stage). z-index 18 keeps it
+           BELOW the Gogo guide (z 20) so the two intro dialogue screens read
+           crisply on top of the blurred table. Driven by showPreLBDSequence().
+           ========================================================= */
+        #pre-lbd {
+            position: absolute;
+            inset: 0;
+            z-index: 18;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            /* No blur / no dim — keep the background artwork fully visible and
+               crisp (per UX spec). This layer only blocks input while shown. */
+            background: transparent;
+            transition: opacity 360ms ease;
+        }
+        #pre-lbd.show { opacity: 1; pointer-events: auto; }   /* blocks taps while visible */
+        #pre-lbd-card {
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            gap: 1.4vh; text-align: center;
+            width: 100%; height: 100%;
+            /* Sit slightly ABOVE vertical centre so the title/CTA has room below. */
+            transform: translateY(-4%) scale(0.82); opacity: 0;
+            transition: transform 520ms cubic-bezier(.22,1.45,.36,1), opacity 360ms ease;
+        }
+        #pre-lbd-card.show { transform: translateY(-4%) scale(1); opacity: 1; }
+        /* Opening-screen hero: large centred genie.png (707×710). */
+        #pre-lbd-genie {
+            width: auto; height: auto;
+            max-height: 68%;          /* of the 16:9 safe area */
+            max-width: 60%;
+            object-fit: contain;
+            transform-origin: center center;
+            filter: drop-shadow(0 12px 26px rgba(0,0,0,0.42));
+            animation: gcFloat 2.8s ease-in-out infinite;
+            user-select: none; -webkit-user-drag: none;
+        }
+        #pre-lbd-title {
+            font-family: inherit; font-weight: 900; font-size: 4.6vw; color: #fff;
+            text-shadow: 0 3px 0 #c85a16, 0 6px 18px rgba(0,0,0,0.55);
+            letter-spacing: 0.02em;
+        }
+        @media (max-width: 820px) {
+            #pre-lbd-genie { max-height: 60%; max-width: 78%; }
+            #pre-lbd-title { font-size: 7.6vw; }
+        }
+
+        /* ---------------------------------------------------------
+           PRE-LBD DIALOGUE-SCREEN CHARACTER  (Welcome / Pour screens)
+           A large intro genie that REPLACES Gogo on the two intro dialogue
+           screens. src is swapped per screen (genie-1.png → genie.png). It is
+           centred horizontally and anchored to the bottom of the 16:9 safe area
+           so it reads big while leaving the upper region for the speech bubble
+           (guide unit, z 20). height:auto + max constraints keep the aspect
+           ratio — no stretching, no clipping.
+           --------------------------------------------------------- */
+        #pre-lbd-intro-genie {
+            position: absolute;
+            left: 50%;
+            bottom: 0;
+            transform: translateX(-50%) scale(0.9);
+            width: auto;
+            height: auto;
+            max-height: 72%;        /* of the 16:9 safe area */
+            max-width: 52%;
+            object-fit: contain;
+            z-index: 2;             /* above the black sheet (1), below the bubble (20) */
+            opacity: 0;
+            pointer-events: none;
+            filter: drop-shadow(0 14px 30px rgba(0,0,0,0.45));
+            transition: opacity 420ms ease, transform 520ms cubic-bezier(.22,1.45,.36,1);
+            user-select: none; -webkit-user-drag: none;
+        }
+        #pre-lbd-intro-genie.show {
+            opacity: 1;
+            transform: translateX(-50%) scale(1);
+            animation: introGenieFloat 2.8s ease-in-out infinite;
+        }
+        /* Float keeps the translateX(-50%) centring (plain gcFloat would drop it). */
+        @keyframes introGenieFloat {
+            0%, 100% { transform: translateX(-50%) translateY(0); }
+            50%      { transform: translateX(-50%) translateY(-1.4vh); }
+        }
+
+        /* Full-screen 50%-black + blur sheet shown on BOTH intro dialogue screens
+           (Welcome + Pour). It sits ABOVE the table/background but BELOW the intro
+           genie (z 2) and the speech bubble (guide unit, z 20), so those render
+           crisp on top while the scene behind is dimmed/blurred. pointer-events:
+           none so it never blocks; toggled via .show and removed after the intro. */
+        .pre-lbd-black-sheet {
+            position: absolute;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(6px);
+            -webkit-backdrop-filter: blur(6px);
+            z-index: 1;             /* behind the intro genie (2) within #pre-lbd */
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 360ms ease;
+        }
+        .pre-lbd-black-sheet.show { opacity: 1; }
+
+        /* During the two intro dialogue screens the big intro genie REPLACES
+           Gogo, so keep the in-game Gogo hidden even though setDialogue() →
+           showStageGuide() un-hides the guide. (Bubble + text still show.) */
+        body.pre-lbd-intro #genie { opacity: 0 !important; }
+        /* With Gogo hidden, the bubble must hang above the CENTRED intro genie so
+           its tail tip lands on the turban (it was centred only inside the
+           right-half #guide-wrap, so the tail pointed off into empty space to the
+           genie's upper-right). We expand the guide unit to the full stage and
+           place the bubble explicitly: the tail tip sits at x≈15.1%, y≈72.7% of
+           the (mirrored) bubble art, so translateX(-15.1%) off left:50% drops the
+           tail tip onto the stage centre — directly over the genie's head. */
+        body.pre-lbd-intro #guide-wrap {
+            left: 0; top: 0; width: 100%; height: 100%; transform: none;
+        }
+        body.pre-lbd-intro #speech-wrap {
+            left: 50%;
+            top: 13%;
+            width: 44%;                       /* fixed intro size (overrides short/med/long) */
+            transform: translateX(-15.1%);    /* tail tip → stage centre, over the turban */
+        }
+
+        @media (max-width: 820px) {
+            #pre-lbd-intro-genie { max-height: 60%; max-width: 74%; }
+        }
+
+        /* =========================================================
+           CAPACITY-FLOW COMPLETION SCREEN (after the main-game iteration)
+           ========================================================= */
+        #capacity-complete {
+            position: absolute; inset: 0; z-index: 90; display: none;
+            flex-direction: column; align-items: center; justify-content: center;
+            gap: 2.2vh; background: rgba(40, 20, 0, 0.5);
+            backdrop-filter: blur(9px); -webkit-backdrop-filter: blur(9px);
+            overflow: hidden;
+        }
+        #capacity-complete.show { display: flex; animation: panelPop 600ms ease; }
+        #capacity-complete-gogo {
+            width: 30%; max-width: 360px; height: auto;
+            user-select: none; -webkit-user-drag: none;
+            animation: gcFloat 2.2s ease-in-out infinite;
+        }
+        #capacity-complete-stars {
+            font-size: 5vw; letter-spacing: 1vw; line-height: 1;
+            color: #ffd54a; text-shadow: 0 0 16px rgba(255,200,60,0.9);
+        }
+        #capacity-complete-text {
+            font-size: 2.6vw; font-weight: 900; color: #fff; text-align: center;
+            max-width: 76%; line-height: 1.25; text-shadow: 0 3px 8px rgba(0,0,0,0.5);
+        }
+        #capacity-play-again {
+            font-family: inherit; font-size: 2.4vw; font-weight: 900; color: #fff;
+            background: linear-gradient(#ffb13b, #ff7a00); border: none;
+            border-radius: 2vw; padding: 1.2vw 4vw; box-shadow: 0 8px 0 #c85a16;
+            cursor: pointer; animation: gcFloat 1.6s ease-in-out infinite; z-index: 2;
+        }
+        #capacity-play-again:active { transform: translateY(5px); box-shadow: 0 3px 0 #c85a16; }
+        @media (max-width: 820px) {
+            #capacity-complete-text { font-size: 4.6vw; }
+            #capacity-play-again    { font-size: 4.4vw; padding: 2.4vw 7vw; border-radius: 3.4vw; }
+            #capacity-complete-stars{ font-size: 9vw; }
+            #capacity-complete-gogo { width: 46%; }
+        }
+
+        /* =========================================================
            KID-FRIENDLY INTERACTION POLISH
            Clickable cursor + magical hover glow + tap squash-pop +
            idle pulse. Hover/lift are driven by JS classes (busy-aware)
@@ -1144,10 +1407,194 @@
             transform-origin: center top;
             filter: drop-shadow(0 3px 5px rgba(0, 0, 0, 0.4));
         }
-        #hand-hint.show { display: block; animation: handTap 0.95s ease-in-out infinite; }
-        @keyframes handTap {
-            0%, 100% { transform: translate(-50%, 0)     rotate(6deg) scale(1); }
-            50%      { transform: translate(-50%, -60px) rotate(6deg) scale(1.14); }
+        /* The hand hint is a crisp static vector (hand_tap_animation.svg — the
+           32x32 PNG blurred when scaled up), so the "tap" motion is driven HERE by
+           a CSS keyframe. It sits ON the CENTRE of the active jar (JS anchors
+           left+top to the jar centre), so we centre on both axes and add a gentle
+           tap bob + scale pulse on top of that centring. */
+        #hand-hint.show {
+            display: block;
+            animation: handTapHint 1.15s ease-in-out infinite;
+        }
+        @keyframes handTapHint {
+            0%, 100% { transform: translate(-50%, -50%) scale(1)    rotate(-3deg); }
+            45%      { transform: translate(-50%, -42%) scale(0.9)  rotate(2deg); }
+            60%      { transform: translate(-50%, -42%) scale(0.9)  rotate(2deg); }
+        }
+
+        /* =========================================================
+           ARABIAN LEVEL-CHANGE CURTAIN
+           Two ornate velvet curtains glide in slowly from the sides and meet in
+           the middle (level "closes"), the next level is built hidden behind
+           them, then they glide back open. Deliberately UNHURRIED + gentle
+           ease-in-out so the change of scene feels calm and magical, not snappy.
+           Timing is driven from JS (playLevelCurtainTransition) by toggling the
+           .active / .closing classes.
+           ========================================================= */
+        #level-curtain {
+            position: absolute;
+            inset: 0;
+            z-index: 9000;
+            display: none;
+            overflow: hidden;
+            pointer-events: none;
+        }
+        #level-curtain.active { display: block; pointer-events: auto; }
+
+        .lc-panel {
+            position: absolute;
+            top: 0;
+            width: 52%;
+            height: 100%;
+            /* Deep royal-velvet body with vertical gold-threaded pleats. */
+            background:
+                repeating-linear-gradient(90deg,
+                    rgba(0,0,0,0.28) 0, rgba(0,0,0,0.28) 2px,
+                    rgba(255,255,255,0.05) 5px, rgba(255,255,255,0.05) 7px,
+                    rgba(0,0,0,0.18) 10px, rgba(0,0,0,0.0) 24px, rgba(0,0,0,0.30) 38px),
+                linear-gradient(90deg, #2a1149 0%, #5b2a86 40%, #3a1d5e 70%, #25103f 100%);
+            box-shadow: inset 0 0 60px rgba(0,0,0,0.55);
+            transition: transform 1250ms cubic-bezier(.45, .05, .25, 1);
+            will-change: transform;
+        }
+        .lc-left  { left: 0;    transform: translateX(-102%); }
+        .lc-right { right: 0;   transform: translateX(102%); }
+        /* Gold scalloped trim on the meeting (inner) edge of each panel. */
+        .lc-panel::after {
+            content: "";
+            position: absolute;
+            top: 0;
+            width: clamp(10px, 1.4vw, 22px);
+            height: 100%;
+            background:
+                repeating-radial-gradient(circle at 100% 14px,
+                    #f6c453 0 9px, rgba(246,196,83,0) 10px 28px),
+                linear-gradient(180deg, #f6c453, #b8860b);
+            box-shadow: 0 0 16px rgba(246,196,83,0.7);
+        }
+        .lc-left::after  { right: 0; }
+        .lc-right::after { left: 0; transform: scaleX(-1); }
+
+        /* Scalloped golden valance hanging from the top. */
+        .lc-valance {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%;
+            height: 13%;
+            background:
+                repeating-radial-gradient(circle at 24px 100%,
+                    #5b2a86 0 22px, #3a1d5e 22px 30px),
+                linear-gradient(180deg, #2a1149, #5b2a86);
+            border-bottom: 3px solid #f6c453;
+            box-shadow: 0 6px 18px rgba(0,0,0,0.45), inset 0 0 30px rgba(0,0,0,0.4);
+            transform: translateY(-102%);
+            transition: transform 1250ms cubic-bezier(.45, .05, .25, 1);
+            z-index: 2;
+        }
+
+        /* CLOSED state: curtains meet, valance drops. (No centre medallion —
+           the clean velvet seam reads better than a floating emblem.) */
+        #level-curtain.closing .lc-left   { transform: translateX(0); }
+        #level-curtain.closing .lc-right  { transform: translateX(0); }
+        #level-curtain.closing .lc-valance{ transform: translateY(0); }
+
+        /* =========================================================
+           LOADING / TITLE SCREEN + START BUTTON
+           Covers the whole stage at boot with the "Pour the Juice" banner and a
+           pulsing "Let's Go" button in the bottom-right. Tapping Start fades the
+           screen out and begins the intro. (.hide drives the fade-out.)
+           ========================================================= */
+        #loading-screen {
+            position: absolute;
+            inset: 0;
+            z-index: 9500;
+            background: #1c0f33;
+            opacity: 1;
+            transition: opacity 650ms ease;
+        }
+        #loading-screen.hide { opacity: 0; pointer-events: none; }
+        #loading-banner {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;        /* fill the 16:9 stage with the banner art */
+            user-select: none; -webkit-user-drag: none;
+        }
+        /* Slim loading bar (centre-bottom) shown while assets warm up; hidden
+           once the Start button is revealed. */
+        #loading-status {
+            position: absolute;
+            left: 50%; bottom: 7%;
+            transform: translateX(-50%);
+            width: 34%;
+            text-align: center;
+            transition: opacity 360ms ease;
+        }
+        #loading-status.done { opacity: 0; pointer-events: none; }
+        #loading-track {
+            width: 100%;
+            height: clamp(8px, 1vw, 14px);
+            border-radius: 999px;
+            background: rgba(0,0,0,0.35);
+            border: 2px solid rgba(246,196,83,0.85);
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.4);
+        }
+        #loading-bar {
+            width: 0%;
+            height: 100%;
+            border-radius: 999px;
+            background: linear-gradient(90deg, #FFD66B, #FEA400);
+            transition: width 420ms ease;
+        }
+        #loading-text {
+            margin-top: clamp(4px, 0.8vw, 10px);
+            font-weight: 900;
+            color: #fff3d6;
+            font-size: clamp(13px, 1.5vw, 22px);
+            text-shadow: 0 2px 6px rgba(0,0,0,0.5);
+            letter-spacing: 0.04em;
+        }
+        /* Bottom-right "Let's Go" start button. Idle: a soft breathing pulse.
+           Hover/focus: a stronger, faster pulse + glow (the requested cursor
+           interaction). */
+        #start-btn {
+            position: absolute;
+            right: 4%;
+            bottom: 1%;
+            width: clamp(140px, 19vw, 550px);
+            height: auto;
+            padding: 0;
+            border: none;
+            background: none;
+            cursor: pointer;
+            opacity: 0;
+            pointer-events: none;
+            transform-origin: center;
+            transition: opacity 420ms ease;
+            animation: startIdlePulse 1.9s ease-in-out infinite;
+            filter: drop-shadow(0 6px 16px rgba(0,0,0,0.45));
+            -webkit-tap-highlight-color: transparent;
+        }
+        #start-btn.ready { opacity: 1; pointer-events: auto; }
+        #start-btn img { display: block; width: 100%; height: auto; user-select: none; -webkit-user-drag: none; }
+        #start-btn:hover, #start-btn:focus-visible {
+            animation: startHoverPulse 0.7s ease-in-out infinite;
+            filter: drop-shadow(0 0 18px rgba(255,214,107,0.95)) drop-shadow(0 8px 18px rgba(0,0,0,0.45));
+            outline: none;
+        }
+        @keyframes startIdlePulse {
+            0%, 100% { transform: scale(1); }
+            50%      { transform: scale(1.04); }
+        }
+        @keyframes startHoverPulse {
+            0%, 100% { transform: scale(1.06); }
+            50%      { transform: scale(1.16); }
+        }
+        @media (max-width: 820px) {
+            #start-btn { width: clamp(120px, 30vw, 240px); }
+            #loading-status { width: 56%; }
         }
 
         /* Tap burst: a "magic ring" that expands out of the tapped container. */
@@ -1199,6 +1646,49 @@
                         drop-shadow(0 0 30px rgba(255, 165, 40, 0.55));
             }
         }
+
+        /* =========================================================
+           GAMIFIED OVERFLOW DRIPS (level-2 tall-jar overflow).
+           Juice clings to the OUTSIDE of the over-full tall jar and drips
+           onto the table, where each drop lands in a small ripple on the
+           spill puddle. Built/positioned in JS (startOverflowDrips) so it
+           tracks the real jar; these are the visual styles. The juice color
+           follows --tutorial-spill-color so it matches the puddle/stream.
+           ========================================================= */
+        .ov-rim {                 /* juice cresting over the jar rim */
+            position: absolute; z-index: 6; pointer-events: none;
+            background: radial-gradient(ellipse at 50% 35%,
+                color-mix(in srgb, var(--tutorial-spill-color) 92%, #fff) 0%,
+                var(--tutorial-spill-color) 60%, transparent 86%);
+            border-radius: 50%;
+            filter: drop-shadow(0 0 8px rgba(255, 170, 40, 0.55));
+        }
+        .ov-rivulet {             /* juice running down the jar sides */
+            position: absolute; z-index: 6; pointer-events: none; opacity: 0.92;
+            background: linear-gradient(to bottom,
+                color-mix(in srgb, var(--tutorial-spill-color) 95%, #fff) 0%,
+                var(--tutorial-spill-color) 55%,
+                color-mix(in srgb, var(--tutorial-spill-color) 55%, transparent) 100%);
+            border-radius: 45% 45% 50% 50% / 14% 14% 86% 86%;
+            filter: drop-shadow(0 0 6px rgba(255, 170, 40, 0.55));
+            transform-origin: center top;
+            animation: ovRivulet 2.4s ease-in-out infinite;
+        }
+        @keyframes ovRivulet { 0%, 100% { transform: scaleY(1); } 50% { transform: scaleY(1.05); } }
+        .ov-drop {                /* a falling juice droplet (JS animates the fall) */
+            position: absolute; z-index: 7; pointer-events: none;
+            background: radial-gradient(circle at 35% 28%, #ffe0a3 0%, var(--tutorial-spill-color) 72%);
+            border-radius: 50% 50% 50% 50% / 62% 62% 40% 40%;
+            filter: drop-shadow(0 2px 3px rgba(170, 80, 0, 0.45));
+            will-change: transform, opacity;
+        }
+        .ov-ripple {              /* splash ring where a drop hits the table */
+            position: absolute; z-index: 6; pointer-events: none;
+            border: 2px solid color-mix(in srgb, var(--tutorial-spill-color) 70%, #fff);
+            border-radius: 50%;
+            animation: ovRipple 680ms ease-out forwards;
+        }
+        @keyframes ovRipple { from { transform: scale(.4); opacity: .7; } to { transform: scale(1.5); opacity: 0; } }
 
         /* =========================================================
            FIGMA SCREEN PLAYER ("The Fish Rescue" storyboard).
@@ -1703,7 +2193,7 @@
         <img id="pour-scene" src="" alt="" aria-hidden="true">
 
         <!-- Tutorial "tap here" hand hint (appears after 4s idle). -->
-        <img id="hand-hint" src="ASSETS/hand nudge.png" alt="">
+        <img id="hand-hint" src="ASSETS/image.png" alt="">
 
         <!-- Guide unit: Gogo + speech bubble move together so the bubble tail
              always points at Gogo's head and the text stays centred in the box. -->
@@ -1716,6 +2206,37 @@
                 <img id="dialogue" src="ASSETS/Dialoage Box.svg" alt="">
                 <div id="dialogue-text"></div>
             </div>
+        </div>
+
+        <!-- =========================================================
+             ARABIAN LEVEL-CHANGE TRANSITION
+             Two ornate velvet curtains sweep in from the sides and meet in the
+             middle, the next level is set up hidden behind them, then they sweep
+             back open. Driven by playLevelCurtainTransition(). Hidden /
+             non-interactive by default.
+             ========================================================= -->
+        <div id="level-curtain" aria-hidden="true">
+            <div class="lc-valance"></div>
+            <div class="lc-panel lc-left"></div>
+            <div class="lc-panel lc-right"></div>
+        </div>
+
+        <!-- =========================================================
+             LOADING / TITLE SCREEN
+             Shown at boot: the "Pour the Juice" banner fills the stage and a
+             pulsing "Let's Go" start button sits at the bottom-right. The intro
+             + tutorial only begin once the child taps Start (see showLoadingScreen
+             → start-btn click → showPreLBDSequence).
+             ========================================================= -->
+        <div id="loading-screen" aria-hidden="false">
+            <img id="loading-banner" src="ASSETS/game-banner.png" alt="Pour the Juice">
+            <div id="loading-status">
+                <div id="loading-track"><div id="loading-bar"></div></div>
+                <div id="loading-text">Loading…</div>
+            </div>
+            <button id="start-btn" type="button" aria-label="Start game">
+                <img src="ASSETS/start.png" alt="Let's Go">
+            </button>
         </div>
 
         <!-- =========================================================
@@ -1740,6 +2261,41 @@
              success flow, before the main game starts. -->
         <div id="tutorial-celebrate" aria-hidden="true">
             <img id="tutorial-celebrate-img" src="ASSETS/win gogo.png" alt="Gogo">
+        </div>
+
+        <!-- =========================================================
+             PRE-LBD INTRO — polished transition screen shown after the
+             tutorial finishes and BEFORE the LBD/main game starts. Blocks
+             all input while visible (pointer-events:auto). The two intro
+             dialogue screens (Welcome / Pour carefully) reuse the Gogo guide
+             above; this backdrop dims the table behind them. Driven by
+             showPreLBDSequence(). z-index sits below the guide (20) so the
+             speech bubble shows on top, and above the table props.
+             ========================================================= -->
+        <div id="pre-lbd" aria-hidden="true">
+            <!-- Full-screen 50%-black + blur sheet shown on BOTH intro dialogue
+                 screens (Welcome + Pour), behind the genie/bubble. Removed after
+                 the intro. -->
+            <div id="pre-lbd-black-sheet" class="pre-lbd-black-sheet" aria-hidden="true"></div>
+            <!-- Large intro character for the Welcome / Pour dialogue screens.
+                 src is swapped per screen: genie-1.png (Welcome) → genie.png
+                 (Pour). Sits above the blur, below the speech bubble. -->
+            <img id="pre-lbd-intro-genie" src="ASSETS/genie-1.png" alt="" aria-hidden="true">
+            <div id="pre-lbd-card">
+                <img id="pre-lbd-genie" src="ASSETS/genie.png" alt="Genie">
+                <div id="pre-lbd-title">Juice Challenge!</div>
+            </div>
+        </div>
+
+        <!-- =========================================================
+             CAPACITY-FLOW COMPLETION — shown after the tutorial-style
+             main-game iteration finishes. Reuses the celebration styling.
+             ========================================================= -->
+        <div id="capacity-complete" aria-hidden="true">
+            <img id="capacity-complete-gogo" src="ASSETS/win gogo.png" alt="Gogo celebrating">
+            <div id="capacity-complete-stars">&#9733;&#9733;&#9733;</div>
+            <div id="capacity-complete-text">You found which container<br>can hold more juice!</div>
+            <button id="capacity-play-again" type="button">Play Again</button>
         </div>
 
         <!-- =========================================================
@@ -1937,8 +2493,14 @@
         const dialogueText = document.getElementById('dialogue-text');
         const tutorialCelebrate = document.getElementById('tutorial-celebrate');
         const tutorialCelebrateImg = document.getElementById('tutorial-celebrate-img');
-        const WIN_GOGO_SRC  = 'ASSETS/win gogo.png';
-        const LOSE_GOGO_SRC = 'ASSETS/loose gogo.png';
+        const preLbd        = document.getElementById('pre-lbd');
+        const preLbdCard    = document.getElementById('pre-lbd-card');
+        const preLbdIntroGenie = document.getElementById('pre-lbd-intro-genie');
+        const preLbdBlackSheet = document.getElementById('pre-lbd-black-sheet');
+        // NOTE: asset paths are `let` (not const) so the Capacity Flow engine can
+        // swap them per iteration (tutorial vs main game) — see applyCapacityAssets.
+        let WIN_GOGO_SRC  = 'ASSETS/win gogo.png';
+        let LOSE_GOGO_SRC = 'ASSETS/loose gogo.png';
 
         // Tutorial state machine
         const STEPS = {
@@ -2007,6 +2569,49 @@
             //     start: () => startTrickyEqualLookLevel() },
         ];
 
+        // ---------- Arabian level-change curtain ----------
+        // Sweep two ornate velvet curtains shut over the whole stage (with a
+        // glinting gold medallion + chime), build the next level HIDDEN behind
+        // them via `buildNextFn`, then sweep them back open to reveal it. Used
+        // when one tutorial level completes and the next begins, so the change of
+        // scene feels like a magical "genie reveal" instead of a hard cut.
+        function playLevelCurtainTransition(buildNextFn) {
+            return new Promise(async (resolve) => {
+                const curtain = document.getElementById('level-curtain');
+                if (!curtain) {                       // graceful fallback: no curtain in DOM
+                    try { await buildNextFn(); } catch (e) {}
+                    return resolve();
+                }
+                // Hide the guide + hand so nothing pokes out during the sweep.
+                if (typeof hideGuide === 'function') hideGuide();
+                if (handHint) handHint.classList.remove('show');
+
+                // 1) Show + close (curtains glide in slowly to meet). Timings match
+                //    the 1250ms CSS transition so the hold lands when fully shut.
+                curtain.classList.add('active');
+                void curtain.offsetWidth;                       // commit start state
+                curtain.classList.add('closing');
+                playSound('success');                           // soft magical chime
+                await wait(1300);                               // fully closed
+                await wait(300);                                // gentle closed hold
+
+                // 2) Build the next level behind the closed curtain (scene reset
+                //    paints out of sight; its instruction types as we re-open).
+                let startPromise = Promise.resolve();
+                try { startPromise = Promise.resolve(buildNextFn()); } catch (e) {}
+                await wait(500);
+
+                // 3) Open (curtains glide back out, slowly).
+                curtain.classList.remove('closing');
+                await wait(1300);
+                curtain.classList.remove('active');
+
+                // 4) Let the next level's intro/instruction finish playing.
+                try { await startPromise; } catch (e) {}
+                resolve();
+            });
+        }
+
         // Advance to the variation AFTER `fromLevel`; finish if none remain.
         // Clears the busy lock so the next variation's taps work, then starts
         // it. This is the single place that decides "what comes next".
@@ -2019,22 +2624,289 @@
 
             if (next && typeof next.start === 'function') {
                 tutorialLevel = next.level;
-                await next.start();
+                // Magical Arabian curtain reveal between levels.
+                await playLevelCurtainTransition(() => next.start());
             } else {
                 finishTutorial();
             }
         }
 
-        // Final cleanup once every variation has been proven + quizzed.
+        // Final cleanup once every variation in the CURRENT iteration has been
+        // proven + quizzed. Branches on the active capacity-flow phase:
+        //   • tutorial → run the Pre-LBD intro, then the main-game iteration.
+        //   • main     → show the completion screen.
+        // (Named finishCapacityFlow conceptually; kept the finishTutorial name
+        //  because advanceTutorialVariation already calls it as its terminal.)
         function finishTutorial() {
             hideOverflowSpill();
             resetGeniePose();
-            cleanupAnimationState();   // clear tutorial timers/particles before handoff
+            cleanupAnimationState();   // clear timers/particles before handoff
             document.body.classList.remove('fx-busy');
             gameState.busy = false;
-            console.log('[juiceGame] all tutorial variations complete → main game');
-            // Hand off to the watermelon main game (never appears before this).
-            startMainGame();
+
+            if (CAPACITY_PHASE === 'main') {
+                console.log('[juiceGame] main-game iteration complete → completion screen');
+                showCapacityComplete();
+                return;
+            }
+            // The intro screens now play at GAME START (before the tutorial), so
+            // the tutorial hands straight off into the main-game iteration.
+            console.log('[juiceGame] tutorial complete → main-game iteration');
+            startMainGameIteration();
+        }
+
+        /* =========================================================
+           CAPACITY FLOW ENGINE (shared by tutorial + main game)
+           The whole "tap → fill → pour → result/overflow/remaining → quiz →
+           continue/complete" experience is ONE engine. The tutorial and the
+           main-game iteration are the SAME code path; they differ only by the
+           asset config passed to applyCapacityAssets and by CAPACITY_PHASE
+           (which decides what happens after the last variation — see
+           finishTutorial). Reusable step entry points already exist and are
+           aliased below for clarity:
+             setupCapacityScene   → (reset block inside startCapacityFlow)
+             showCapacityInstruction → showInstructionThenEnable
+             fillContainer        → runTallFillSequence / runWideFillSequence
+             pourContainer        → runPourToWideSequence / runWideToTallPourSequence
+             showCapacityQuiz     → showCapacityQuiz (existing)
+             finishCapacityFlow   → finishTutorial
+           ========================================================= */
+
+        // ONE cleanup for every screen transition (BUG-safe hand-off). Clears
+        // typewriter / idle-hand / instruction timers, active tap targets, proof
+        // glow, overflow drips, stream/bubble particles, the hand hint, and the
+        // transient CSS classes (fx-busy / scene-playing / show / full / active).
+        function clearCapacityFlowState() {
+            cleanupAnimationState();        // timers, streams, particles, hand, drips
+            if (typeof clearInstructionTimers === 'function') clearInstructionTimers();
+            if (typeof clearActiveTapTargets === 'function')  clearActiveTapTargets();  // + idle hand
+            if (typeof clearProofHighlights === 'function')   clearProofHighlights();   // proof glow
+            if (typeof stopQuizIdleHints === 'function')      stopQuizIdleHints();
+            if (typeof hideCapacityQuiz === 'function')       hideCapacityQuiz();
+            if (typeof hideGuide === 'function')              hideGuide();
+            if (typeof hideOverflowSpill === 'function')      hideOverflowSpill();
+            if (handHint) handHint.classList.remove('show');
+            tutorialCelebrate.classList.remove('show');
+            tutorialCelebrate.setAttribute('aria-hidden', 'true');
+            document.body.classList.remove('fx-busy', 'scene-playing');
+            [tallWrap, wideWrap].forEach(el => {
+                if (!el) return;
+                el.style.transform = ''; el.style.filter = ''; el.style.opacity = '';
+                el.style.visibility = 'visible'; el.style.zIndex = '';
+            });
+            if (tallLiquid) tallLiquid.classList.remove('full');
+            if (tallDrainMask) tallDrainMask.classList.remove('active');
+            if (jarStopMask) jarStopMask.classList.remove('active');
+        }
+
+        // Single engine entry point. Applies the iteration's assets, resets the
+        // table scene to a clean "fill the first container" start, and shows the
+        // first instruction. Used by the tutorial boot, the main-game iteration,
+        // and Play Again — so there is exactly one start path (no duplicate code).
+        function startCapacityFlow(config) {
+            config = config || {};
+            CAPACITY_PHASE = config.phase || 'tutorial';
+            // Watermelon theme drives the post-tutorial (main) iteration.
+            document.body.classList.toggle('phase-watermelon', CAPACITY_PHASE === 'main');
+            clearCapacityFlowState();
+            if (config.assets) applyCapacityAssets(config.assets);
+
+            // setupCapacityScene: fresh dispenser-full, both containers empty,
+            // no spill/drain, neutral guide pose.
+            setDispenserFull();
+            tall.src = TALL_EMPTY_SRC;
+            wide.src = WIDE_EMPTY_SRC;
+            if (wideLiquid) wideLiquid.classList.remove('partial');
+            resetGeniePose();
+
+            tutorialLevel = TUTORIAL_LEVELS.TALL_TO_WIDE;
+            currentStep   = STEPS.TAP_FILL_TALL;
+            gameState.busy = false;
+            gameState.canInteract = false;
+            currentState = GAME_STATES.TUTORIAL_START;
+
+            console.log('[juiceGame] startCapacityFlow → phase=' + CAPACITY_PHASE);
+            showInstructionThenEnable('Tap to fill<br>this container.', tallWrap);
+        }
+        // Documented step aliases (point at the real engine functions).
+        const showCapacityInstruction = (text, target) => showInstructionThenEnable(text, target);
+
+        // ---------- Main-game iteration (tutorial-style) ----------
+        // Runs the SAME capacity flow as the tutorial, with the main-game asset
+        // set, then ends on the completion screen (see finishTutorial → main).
+        function startMainGameIteration() {
+            startCapacityFlow({ assets: MAIN_GAME_ASSETS, phase: 'main' });
+        }
+
+        // ---------- Completion screen ----------
+        // Shown after the main-game iteration's last variation. Reuses the
+        // celebration overlay styling; offers Play Again (→ tutorial restart).
+        function showCapacityComplete() {
+            clearCapacityFlowState();
+            CAPACITY_PHASE = 'done';
+            const txt = document.getElementById('capacity-complete-text');
+            if (txt) txt.innerHTML = 'You found which container<br>can hold more juice!';
+            const ov = document.getElementById('capacity-complete');
+            if (ov) {
+                ov.classList.add('show');
+                ov.setAttribute('aria-hidden', 'false');
+                createSparkles(ov, 26);
+            }
+            playSound('success');
+        }
+
+        /* =========================================================
+           INTRO SEQUENCE (plays at GAME START, before the tutorial)
+           Flow: [boot] → transition card → "Welcome to the Juice Challenge!" →
+           "Pour the juice carefully ... holds more." → tutorial flow.
+           A single async orchestrator (called from boot). It wipes every timer /
+           hand hint / typing callback / active tap target / animation lock,
+           blocks all input for the whole intro, and only starts the tutorial
+           after the last screen finishes.
+           ========================================================= */
+        // ---------- Loading / title screen + Start button ----------
+        // Shows the "Pour the Juice" banner, warms the heavy art while a slim bar
+        // fills, then reveals the bottom-right "Let's Go" button. Tapping it fades
+        // the screen out and runs the intro. Never auto-starts — the child decides.
+        function showLoadingScreen() {
+            const screen   = document.getElementById('loading-screen');
+            const bar      = document.getElementById('loading-bar');
+            const status   = document.getElementById('loading-status');
+            const startBtn = document.getElementById('start-btn');
+            if (!screen || !startBtn) { showPreLBDSequence(); return; }   // graceful fallback
+
+            // Warm the key art so the first frames after Start are instant.
+            const assets = [
+                'ASSETS/Background.png', 'ASSETS/TAble.png', 'ASSETS/Orange Jar.svg',
+                'ASSETS/TAll container.svg', 'ASSETS/Wide Container.svg',
+                'ASSETS/tall_container_orange_juice.svg', 'ASSETS/wide-fill-jar.svg',
+                'ASSETS/orange_jar_juice_decreasing.svg', 'ASSETS/juice-pour.svg',
+                'ASSETS/juice-pour-overflow.svg', 'ASSETS/genie-1.png', 'ASSETS/genie.png',
+                'ASSETS/Gogo.png', 'ASSETS/Dialoage Box.svg', 'ASSETS/image.png'
+            ];
+            let loaded = 0;
+            const bump = () => {
+                loaded++;
+                if (bar) bar.style.width = Math.round((loaded / assets.length) * 100) + '%';
+            };
+            assets.forEach(src => { const im = new Image(); im.onload = im.onerror = bump; im.src = src; });
+
+            // Reveal Start once the art is warm (min ~800ms so the bar reads, hard
+            // cap ~4.5s so a slow decode never strands the player).
+            const t0 = performance.now();
+            let revealed = false;
+            const poll = setInterval(() => {
+                const elapsed = performance.now() - t0;
+                if ((loaded >= assets.length && elapsed > 800) || elapsed > 4500) {
+                    clearInterval(poll);
+                    if (revealed) return;
+                    revealed = true;
+                    if (bar) bar.style.width = '100%';
+                    if (status) status.classList.add('done');
+                    startBtn.classList.add('ready');
+                }
+            }, 120);
+
+            const begin = () => {
+                startBtn.removeEventListener('click', begin);
+                try { playSound('success'); } catch (e) {}
+                screen.classList.add('hide');
+                setTimeout(() => { screen.style.display = 'none'; }, 700);
+                showPreLBDSequence();
+            };
+            startBtn.addEventListener('click', begin);
+        }
+
+        async function showPreLBDSequence() {
+            // 1) Clean slate — nothing from the tutorial may leak forward.
+            cleanupAnimationState();        // timers, streams, particles, hand
+            clearInstructionTimers();       // pending "enable + glow" callbacks
+            clearActiveTapTargets();        // also stops the tutorial idle hand
+            stopQuizIdleHints();
+            hideCapacityQuiz();
+            hideGuide();
+            hideOverflowSpill();
+            if (handHint) handHint.classList.remove('show');
+            tutorialCelebrate.classList.remove('show');
+            tutorialCelebrate.setAttribute('aria-hidden', 'true');
+            document.body.classList.remove('fx-busy', 'scene-playing');
+            // Intro character + black sheet start hidden (re-shown per screen).
+            hidePreLbdIntroCharacter();
+            setPreLbdBlackSheet(false);
+            // Lock interaction for the entire intro (no taps reach the scene).
+            gameState.busy = true;
+            gameState.canInteract = false;
+
+            try {
+                // The "Juice Challenge" title card + welcome screen are REMOVED
+                // (the loading banner already serves as the title/welcome). After
+                // Start we go straight to the goal instruction, then the tutorial.
+                preLbd.classList.add('show');
+                preLbd.setAttribute('aria-hidden', 'false');
+                void preLbd.offsetWidth;            // ensure the fade-in transitions
+                // Big intro genie REPLACES Gogo on the instruction screen.
+                document.body.classList.add('pre-lbd-intro');
+                setPreLbdBlackSheet(true);
+
+                // PRE_LBD_WELCOME — big genie-1.png + the welcome line.
+                currentState = GAME_STATES.PRE_LBD_WELCOME;
+                resetGeniePose();
+                showPreLbdIntroCharacter('ASSETS/genie-1.png');
+                showStageGuide();
+                await typeDialogueAwait('Welcome to the<br>Juice Challenge!');
+                await wait(LINE_HOLD_MS);
+
+                // PRE_LBD_INSTRUCTION — big centred genie.png over the black sheet.
+                currentState = GAME_STATES.PRE_LBD_INSTRUCTION;
+                showPreLbdIntroCharacter('ASSETS/genie.png');
+                await typeDialogueAwait('Pour the juice carefully<br>and find which container<br>holds more.');
+                await wait(LINE_HOLD_MS);
+                hideGuide();
+                await wait(340);
+
+                // 5) LBD_START — fade the intro out, then begin the tutorial.
+                currentState = GAME_STATES.LBD_START;
+                hidePreLbdIntroCharacter();
+                setPreLbdBlackSheet(false);           // remove the sheet
+                document.body.classList.remove('pre-lbd-intro');
+                preLbd.classList.remove('show');
+                await wait(440);
+                preLbd.setAttribute('aria-hidden', 'true');
+                resetGeniePose();
+                // Hand off into the capacity flow (tutorial phase). The tutorial
+                // → main-game iteration → completion chain proceeds from here.
+                startCapacityFlow({ assets: TUTORIAL_ASSETS, phase: 'tutorial' });
+            } catch (err) {
+                console.error('[juiceGame] intro sequence error:', err);
+                // Never strand the player on the intro overlay.
+                hidePreLbdIntroCharacter();
+                setPreLbdBlackSheet(false);
+                document.body.classList.remove('pre-lbd-intro');
+                preLbd.classList.remove('show');
+                preLbd.setAttribute('aria-hidden', 'true');
+                hideGuide();
+                startCapacityFlow({ assets: TUTORIAL_ASSETS, phase: 'tutorial' });
+            }
+        }
+
+        // Show/hide the large intro character used on the Welcome / Pour screens.
+        // `src` swaps the image (genie-1.png → genie.png).
+        function showPreLbdIntroCharacter(src) {
+            if (!preLbdIntroGenie) return;
+            if (src) preLbdIntroGenie.src = src;
+            preLbdIntroGenie.classList.add('show');
+            preLbdIntroGenie.setAttribute('aria-hidden', 'false');
+        }
+        function hidePreLbdIntroCharacter() {
+            if (!preLbdIntroGenie) return;
+            preLbdIntroGenie.classList.remove('show');
+            preLbdIntroGenie.setAttribute('aria-hidden', 'true');
+        }
+        // Toggle the full-screen 50%-black + blur intro sheet.
+        function setPreLbdBlackSheet(on) {
+            if (!preLbdBlackSheet) return;
+            preLbdBlackSheet.classList.toggle('show', !!on);
+            preLbdBlackSheet.setAttribute('aria-hidden', on ? 'false' : 'true');
         }
 
         const gameState = {
@@ -2055,6 +2927,11 @@
             TUTORIAL_FILL_TALL:    'TUTORIAL_FILL_TALL',
             TUTORIAL_POUR_TO_WIDE: 'TUTORIAL_POUR_TO_WIDE',
             TUTORIAL_QUIZ:         'TUTORIAL_QUIZ',
+            // --- Pre-LBD intro (after the tutorial, before the main game) ---
+            PRE_LBD_SCREEN:        'PRE_LBD_SCREEN',       // polished transition card
+            PRE_LBD_WELCOME:       'PRE_LBD_WELCOME',      // "Welcome to the Juice Challenge!"
+            PRE_LBD_INSTRUCTION:   'PRE_LBD_INSTRUCTION',  // "Pour the juice carefully ..."
+            LBD_START:             'LBD_START',            // clean hand-off into gameplay
             // --- Main game (watermelon) ---
             GAME_START:        'GAME_START',
             ROUND_INTRO:       'ROUND_INTRO',
@@ -2124,6 +3001,12 @@
                 case GAME_STATES.TUTORIAL_QUIZ:
                     showCapacityQuiz();
                     break;
+                // Pre-LBD intro: entering PRE_LBD_SCREEN runs the whole intro
+                // sequence (the WELCOME / INSTRUCTION / LBD_START sub-states are
+                // advanced inline by showPreLBDSequence — no separate entry fns).
+                case GAME_STATES.PRE_LBD_SCREEN:
+                    showPreLBDSequence();
+                    break;
                 // Main game.
                 case GAME_STATES.GAME_START:        enterGameStart();        break;
                 case GAME_STATES.ROUND_INTRO:       enterRoundIntro();       break;
@@ -2145,8 +3028,10 @@
                 case GAME_STATES.MAIN_CORRECT:          enterMainCorrect();          break;
                 case GAME_STATES.MAIN_COMPLETE:         enterMainComplete();         break;
                 default: /* TUTORIAL_FILL_TALL / POUR_TO_WIDE / ROUND_WRONG /
-                            MAIN_TAP_TO_POUR / MAIN_WRONG are handled inline by
-                            their flows — no entry fn needed. */
+                            MAIN_TAP_TO_POUR / MAIN_WRONG and the Pre-LBD
+                            PRE_LBD_WELCOME / PRE_LBD_INSTRUCTION / LBD_START
+                            sub-states are handled inline by their flows — no
+                            entry fn needed. */
                     break;
             }
 
@@ -2168,27 +3053,28 @@
         };
 
         // SVG sources: the empty glass + the animated juice-fill variant.
-        const EMPTY_GLASS_SRC = 'ASSETS/TAll container.svg';
-        const JUICE_FILL_SRC  = 'ASSETS/tall_container_orange_juice.svg';
+        // (`let`, not const — the Capacity Flow engine swaps these per iteration.)
+        let EMPTY_GLASS_SRC = 'ASSETS/TAll container.svg';
+        let JUICE_FILL_SRC  = 'ASSETS/tall_container_orange_juice.svg';
 
         // Tall container aliases (used by the pour-to-wide flow)
-        const TALL_EMPTY_SRC = EMPTY_GLASS_SRC;
-        const TALL_FULL_SRC  = JUICE_FILL_SRC;
+        let TALL_EMPTY_SRC = EMPTY_GLASS_SRC;
+        let TALL_FULL_SRC  = JUICE_FILL_SRC;
 
         // Wide container sources: empty + post-pour "half full" result.
         // (half-wide.svg replaces wide_container_orange_juice_fill_80_shape.svg.)
-        const WIDE_EMPTY_SRC = 'ASSETS/Wide Container.svg';
-        const WIDE_HALF_SRC  = 'ASSETS/half-wide.svg';
+        let WIDE_EMPTY_SRC = 'ASSETS/Wide Container.svg';
+        let WIDE_HALF_SRC  = 'ASSETS/half-wide.svg';
 
         // Tap-to-fill wide jar: animated SVG that fills the liquid from empty to
         // full with soda bubbles, then freezes full (the resting state). Same
         // 178×195 viewBox as the other wide art, so swaps never jump.
-        const WIDE_FILL_JAR_SRC = 'ASSETS/wide-fill-jar.svg';
+        let WIDE_FILL_JAR_SRC = 'ASSETS/wide-fill-jar.svg';
         const WIDE_FILL_JAR_MS  = 2400;   // matches the SVG's 2.4s fill (begin=0s, freeze)
 
         // Animated pour scene (ASSETS/juice-pour.svg). Self-contained SMIL,
         // one full loop = 6.2s (matches the SVG's dur="6.2s").
-        const HTML_POUR_SRC = 'ASSETS/juice-pour.svg';
+        let HTML_POUR_SRC = 'ASSETS/juice-pour.svg';
         const HTML_POUR_MS  = 6200;
 
         // Wide → tall overflow pour (level 2). The NEW combined-scene asset
@@ -2196,18 +3082,18 @@
         // pouring, the tall jar receiving the juice, the overflow, and the
         // spill/splash. It REPLACES the old mirrored juice-reverse-pour.svg —
         // that asset is no longer used for this level.
-        const WIDE_TO_TALL_OVERFLOW_POUR_SRC = 'ASSETS/juice-pour-overflow.svg';
+        let WIDE_TO_TALL_OVERFLOW_POUR_SRC = 'ASSETS/juice-pour-overflow.svg';
 
         // The bundled scene runs one full cycle in 6.2s (the SVG's dur="6.2s").
         // Use THIS instead of the generic HTML_POUR_MS for the overflow pour so
         // the overlay is torn down exactly when the artwork ends.
         const WIDE_TO_TALL_OVERFLOW_MS = 6200;
 
-        // Intrinsic aspect of the overflow scene (viewBox "34 -34 360 500" →
-        // portrait). Kept separate from POUR_ART_ASPECT so the bundled
-        // wide-pours-into-tall composition is sized to its own proportions and
-        // never squished into the (near-square) side-by-side jar box.
-        const WIDE_TO_TALL_OVERFLOW_ASPECT = 360 / 500;
+        // Intrinsic aspect of the overflow scene (juice-pour-overflow.svg viewBox
+        // "34 -34 410 560" → portrait). Kept separate from POUR_ART_ASPECT so the
+        // bundled wide-pours-into-tall composition is sized to its own proportions
+        // and never squished into the (near-square) side-by-side jar box.
+        const WIDE_TO_TALL_OVERFLOW_ASPECT = 410 / 560;
 
         // The overflow scene is sized to the jar-zone HEIGHT (it is a portrait
         // composition). 1.0 = match the real jar area exactly (no enlarge), so
@@ -2218,7 +3104,7 @@
         // Back-compat alias: the level-2 "reverse pour" now points at the new
         // overflow scene, so any remaining REVERSE_POUR_SRC references (e.g. the
         // preload warmer) load the correct asset.
-        const REVERSE_POUR_SRC = WIDE_TO_TALL_OVERFLOW_POUR_SRC;
+        let REVERSE_POUR_SRC = WIDE_TO_TALL_OVERFLOW_POUR_SRC;
 
         // Intrinsic aspect ratio of both pour SVGs (viewBox 100 72 425 400).
         // Used to size the overlay so the artwork keeps its proportions instead
@@ -2235,19 +3121,125 @@
         //   FULL   → static full jar (initial state)
         //   DRAIN  → animated draining jar (plays during fill)
         //   PAUSED → static jar frozen at the "half remaining" pose
-        const JAR_FULL_SRC   = 'ASSETS/Orange Jar.svg';
-        const JAR_DRAIN_SRC  = 'ASSETS/orange_jar_juice_decreasing.svg';
-        const JAR_PAUSED_SRC = 'ASSETS/orange_jar_paused_mid.svg';
+        let JAR_FULL_SRC   = 'ASSETS/Orange Jar.svg';
+        let JAR_DRAIN_SRC  = 'ASSETS/orange_jar_juice_decreasing.svg';
+        let JAR_PAUSED_SRC = 'ASSETS/orange_jar_paused_mid.svg';
         // Level-2 ONLY: same paused pose but the juice level sits ~10% lower
         // INSIDE the SVG (natural drained look, no cream overlay), so level 2
         // reads as "more juice used" than level 1. See orange_jar_paused_low.svg.
-        const JAR_PAUSED_LOW_SRC = 'ASSETS/orange_jar_paused_low.svg';
+        let JAR_PAUSED_LOW_SRC = 'ASSETS/orange_jar_paused_low.svg';
         // Level-2 (wide) drain: continues from the MID pose (JAR_PAUSED_SRC, juice
         // top y=258) and drops the vector juice further to the low level — so the
         // dispenser depletes progressively across levels (full → mid in L1, mid →
         // low in L2). Same clip-path vector decrease as JAR_DRAIN_SRC (no sheet),
         // just a different start/end range so there is no refill jump.
-        const JAR_WIDE_DRAIN_SRC = 'ASSETS/orange_jar_wide_drain.svg';
+        let JAR_WIDE_DRAIN_SRC = 'ASSETS/orange_jar_wide_drain.svg';
+
+        /* =========================================================
+           CAPACITY FLOW ASSETS (swappable per iteration)
+           The tutorial and the post-tutorial "main game iteration" run the
+           SAME flow engine (tap → fill → pour → result/overflow → quiz →
+           continue/complete); they only differ by these asset paths.
+           Replace ONLY the MAIN_GAME_ASSETS strings to re-skin the main game
+           — no flow code changes needed. applyCapacityAssets() reassigns the
+           (let) source vars above, so every existing reference picks up the
+           new art automatically.
+           ========================================================= */
+        // The old standalone main-game module (mg-stage / LEVELS / MAIN_* states
+        // and the legacy #game-overlay round game) is disabled. Leave this false;
+        // the active post-tutorial experience is the tutorial-style iteration.
+        const ENABLE_OLD_MAIN_GAME = false;
+
+        // Tutorial defaults — captured from the live values above (single source
+        // of truth; no duplicated literals).
+        const TUTORIAL_ASSETS = {
+            bg: 'ASSETS/Background.png',
+            table: 'ASSETS/TAble.png',
+            dispenserFull:   JAR_FULL_SRC,
+            dispenserDrain:  JAR_DRAIN_SRC,
+            dispenserPaused: JAR_PAUSED_SRC,
+            containerAEmpty:  EMPTY_GLASS_SRC,
+            containerAFilled: JUICE_FILL_SRC,
+            containerBEmpty:  WIDE_EMPTY_SRC,
+            containerBFilled: WIDE_HALF_SRC,
+            pourAToB:        HTML_POUR_SRC,
+            pourBToAOverflow: WIDE_TO_TALL_OVERFLOW_POUR_SRC,
+            gogo:    'ASSETS/Gogo.png',
+            winGogo:  WIN_GOGO_SRC,
+            loseGogo: LOSE_GOGO_SRC,
+            handHint: 'ASSETS/image.png',
+            // Optional extras (level-2 wide fill) — kept so the main game can
+            // override them later too; default to the tutorial art.
+            dispenserPausedLow: JAR_PAUSED_LOW_SRC,
+            dispenserWideDrain: JAR_WIDE_DRAIN_SRC,
+            containerBFillAnim: WIDE_FILL_JAR_SRC
+        };
+
+        // Main-game iteration art. Replace ONLY these paths to re-skin the main
+        // game; the flow/layout/timing stay identical to the tutorial. (They
+        // currently point at the same orange-juice art, so the main game looks
+        // like the tutorial until you swap them.)
+        const MAIN_GAME_ASSETS = {
+            bg: 'ASSETS/Background.png',
+            table: 'ASSETS/TAble.png',
+            dispenserFull:   'ASSETS/Watermelon Jar.svg',
+            dispenserDrain:  'ASSETS/watermelon_jar_flow.svg',
+            // Reduced static pose so the dispenser STAYS drained after a fill
+            // (was 'Watermelon Jar.svg' = full, which snapped the juice back up to
+            // full and read as "the juice never stopped / never went down").
+            dispenserPaused: 'ASSETS/watermelon_jar_paused.svg',
+            containerAEmpty:  'ASSETS/for watermelone juice-1-1.svg',
+            containerAFilled: 'ASSETS/watermelon_juice_filling_animation_new_color_fixed.svg',
+            containerBEmpty:  'ASSETS/for watermelone juice-1.svg',
+            containerBFilled: 'ASSETS/watermelon-half-wide.svg',
+            pourAToB:         'ASSETS/juice-pour.svg',
+            pourBToAOverflow: 'ASSETS/juice-pour-overflow.svg',
+            gogo:    'ASSETS/Gogo.png',
+            winGogo:  'ASSETS/win gogo.png',
+            loseGogo: 'ASSETS/loose gogo.png',
+            handHint: 'ASSETS/image.png',
+            // Level-2 (wide) extras — watermelon equivalents.
+            dispenserPausedLow: 'ASSETS/watermelon_jar_paused.svg',
+            dispenserWideDrain: 'ASSETS/watermelon_jar_flow.svg',
+            containerBFillAnim: 'ASSETS/watermelon_juice_filling_animation_color_matched.svg'
+        };
+
+        // Which iteration is currently running ('tutorial' | 'main' | 'done').
+        let CAPACITY_PHASE = 'tutorial';
+
+        // Reassign the active capacity-flow asset sources + the static scene
+        // images. Every flow function reads these vars, so this is the ONLY
+        // place that needs to know about per-iteration art.
+        function applyCapacityAssets(a) {
+            if (!a) return;
+            JAR_FULL_SRC   = a.dispenserFull;
+            JAR_DRAIN_SRC  = a.dispenserDrain;
+            JAR_PAUSED_SRC = a.dispenserPaused;
+            EMPTY_GLASS_SRC = TALL_EMPTY_SRC = a.containerAEmpty;
+            JUICE_FILL_SRC  = TALL_FULL_SRC  = a.containerAFilled;
+            WIDE_EMPTY_SRC = a.containerBEmpty;
+            WIDE_HALF_SRC  = a.containerBFilled;
+            HTML_POUR_SRC  = a.pourAToB;
+            WIDE_TO_TALL_OVERFLOW_POUR_SRC = REVERSE_POUR_SRC = a.pourBToAOverflow;
+            WIN_GOGO_SRC  = a.winGogo  || WIN_GOGO_SRC;
+            LOSE_GOGO_SRC = a.loseGogo || LOSE_GOGO_SRC;
+            // Optional extras (fall back to whatever is current).
+            if (a.dispenserPausedLow) JAR_PAUSED_LOW_SRC = a.dispenserPausedLow;
+            if (a.dispenserWideDrain) JAR_WIDE_DRAIN_SRC = a.dispenserWideDrain;
+            if (a.containerBFillAnim) WIDE_FILL_JAR_SRC = a.containerBFillAnim;
+            // Static scene images.
+            const bgEl = document.getElementById('bg');
+            const tableEl = document.getElementById('table');
+            if (bgEl && a.bg) bgEl.src = a.bg;
+            if (tableEl && a.table) tableEl.src = a.table;
+            if (a.gogo && genie) genie.src = a.gogo;
+            if (tutorialCelebrateImg) tutorialCelebrateImg.src = WIN_GOGO_SRC;
+            if (a.handHint && handHint) handHint.src = a.handHint;
+            // Warm the cache for the (possibly new) art so the first swap is instant.
+            [JAR_FULL_SRC, JAR_DRAIN_SRC, JAR_PAUSED_SRC, EMPTY_GLASS_SRC, JUICE_FILL_SRC,
+             WIDE_EMPTY_SRC, WIDE_HALF_SRC, WIDE_FILL_JAR_SRC, HTML_POUR_SRC,
+             WIDE_TO_TALL_OVERFLOW_POUR_SRC].forEach(s => { const p = new Image(); p.src = s; });
+        }
 
         // Warm the cache so the first swap is near-instant.
         (function preloadJuice() {
@@ -2289,8 +3281,17 @@
         // so stream + bubbles + dispenser drain all stay in sync end-to-end.
         const STREAM_GROW_MS  = 950;   // nozzle stream extends to the jar mouth
         const STREAM_FADE_MS  = 280;   // stream shrinks/fades out when fill ends
-        const NATURAL_FILL_MS = 4200;  // tall container natural fill duration
-        const WIDE_FILL_MS    = 4200;  // wide container natural fill duration
+        // FILL-SYNC FIX: the receiving jar's juice must not start rising until the
+        // pour stream has visually travelled from the nozzle down to the jar mouth.
+        // Previously the fill SVG was swapped in the same instant the stream began
+        // growing, so the juice level climbed for ~950ms BEFORE the stream reached
+        // it — reading as a "delay / disconnect" between the dispenser and the jar.
+        // We hold the fill back by STREAM_CONNECT_MS (just under the grow time, so
+        // the juice begins the moment the stream's leading edge lands) → the pour
+        // looks continuous: stream falls, touches the rim, THEN the level rises.
+        const STREAM_CONNECT_MS = 760;
+        const NATURAL_FILL_MS = 4200;  // tall container natural fill (matches the fill SVG freeze)
+        const WIDE_FILL_MS    = 4200;  // wide container natural fill (matches the fill SVG freeze)
 
         // Shared pacing for narration: typing cadence + how long a finished
         // line is held on screen before the next one. Calm, readable beats.
@@ -2441,9 +3442,30 @@
             juice.style.transition = '';
             juice.style.opacity = '1';
         }
+        // Swap the dispenser <img> WITHOUT a reload flash (BUG #5). The jar SVGs
+        // are ~6.9 MB, so a cache-busted reload re-downloads/-decodes the whole
+        // file and, until it paints, the <img> shows a stale frame — which read
+        // as the juice "snapping back to full" before reducing. Here we always
+        // preload+decode the target off-screen FIRST, then assign it (the visible
+        // <img> only ever flips to an already-painted image).
+        //   restartAnim=true → cache-bust the URL so an ANIMATED (SMIL) drain SVG
+        //     restarts from frame 0.
+        //   restartAnim=false (default) → static pose, NO cache-bust (nothing to
+        //     restart; cache-busting only forces a needless flashing re-decode).
+        function swapDispenserSrc(baseSrc, opts) {
+            const restartAnim = !!(opts && opts.restartAnim);
+            const url = restartAnim ? (baseSrc + '?t=' + Date.now()) : baseSrc;
+            const pre = new Image();
+            pre.src = url;
+            const apply = () => { juice.src = url; };
+            if (pre.decode) pre.decode().then(apply).catch(apply);
+            else if (pre.complete) apply();
+            else { pre.onload = apply; pre.onerror = apply; }
+        }
+
         function setDispenserFull() {
             clearDispenserDrain();
-            juice.src = JAR_FULL_SRC;
+            swapDispenserSrc(JAR_FULL_SRC);
         }
         // Show the dispenser in its "used" (paused mid-level) pose — i.e. juice
         // has already been dispensed. Used by the explanation screens so the
@@ -2452,7 +3474,7 @@
         function setDispenserUsed() {
             clearDispenserDrain();
             if ((juice.getAttribute('src') || '').indexOf('paused') === -1) {
-                juice.src = JAR_PAUSED_SRC;
+                swapDispenserSrc(JAR_PAUSED_SRC);
             }
         }
         // Start the drain animation (restart its SMIL via cache-bust). The clip
@@ -2461,7 +3483,9 @@
         // of the default full→mid drain.
         function startDispenserDrain(drainSrc) {
             clearDispenserDrain();
-            juice.src = (drainSrc || JAR_DRAIN_SRC) + '?t=' + Date.now();
+            // Animated drain: decode first (so the full→draining handoff is
+            // seamless), cache-bust so its SMIL restarts from the full frame.
+            swapDispenserSrc(drainSrc || JAR_DRAIN_SRC, { restartAnim: true });
         }
         // Freeze the drain at the current moment by crossfading to the paused
         // pose. The crossfade softens the small level snap (looping SVG → paused
@@ -2470,22 +3494,50 @@
         // so its dispenser naturally shows ~10% more used than level 1 — the drop
         // happens inside the SVG, not via a cream overlay.
         function freezeDispenserDrain(pausedSrc) {
-            const target = pausedSrc || JAR_PAUSED_SRC;
-            juice.style.transition = 'opacity 200ms ease';
-            juice.style.opacity = '0.45';
-            dispenserFreezeTimer = setTimeout(() => {
-                juice.src = target + '?t=' + Date.now();
-                requestAnimationFrame(() => { juice.style.opacity = '1'; });
-                dispenserFreezeTimer = setTimeout(() => { juice.style.transition = ''; }, 220);
-            }, 150);
+            const target = pausedSrc || JAR_PAUSED_SRC;   // static pose, no cache-bust
+            // Decode the paused pose off-screen FIRST, then crossfade to it, so the
+            // swap never shows a wrong/half-decoded frame (no "snap back to full").
+            const pre = new Image();
+            pre.src = target;
+            const doSwap = () => {
+                juice.style.transition = 'opacity 170ms ease';
+                juice.style.opacity = '0.55';
+                dispenserFreezeTimer = setTimeout(() => {
+                    juice.src = target;     // already decoded → paints immediately
+                    requestAnimationFrame(() => { juice.style.opacity = '1'; });
+                    dispenserFreezeTimer = setTimeout(() => { juice.style.transition = ''; }, 200);
+                }, 130);
+            };
+            if (pre.decode) pre.decode().then(doSwap).catch(doSwap);
+            else if (pre.complete) doSwap();
+            else { pre.onload = doSwap; pre.onerror = doSwap; }
         }
         // ---------- Typewriter + guide visibility ----------
         let typeTimer = null;
+
+        // Dynamic bubble sizing: pick a size from the copy length so short lines
+        // get a tight bubble and long lines a wider/taller one — never one
+        // oversized fixed box (kills the blank "negative space"), and long copy
+        // gets room so it never crops. <br>s count as spaces for the measure.
+        function getDialogueMode(text) {
+            const plain = String(text).replace(/<br\s*\/?>/gi, ' ').trim();
+            if (plain.length <= 24) return 'short';
+            if (plain.length <= 58) return 'medium';
+            return 'long';
+        }
+        function applyDialogueMode(text) {
+            if (!speechWrap) return;
+            const mode = getDialogueMode(text);
+            speechWrap.classList.remove('bubble-short', 'bubble-medium', 'bubble-long');
+            speechWrap.classList.add('bubble-' + mode);
+        }
 
         function setDialogue(text, onDone) {
             clearInterval(typeTimer);
 
             dialogueText.innerHTML = '';
+            // Size the bubble to THIS line before it types in (auto short/med/long).
+            applyDialogueMode(text);
             showStageGuide();
 
             // Soft pop on the whole bubble text each time a new line begins.
@@ -2499,18 +3551,19 @@
             inner.className = 'dt-inner';
             dialogueText.appendChild(inner);
 
-            // Break the line into ordered units: real characters, spaces, and
-            // <br>s. Each character is appended as its own bouncing span so it
-            // springs in individually (gamified), while spaces/breaks lay out
-            // normally. We append nodes (not re-set innerHTML) so only the new
-            // letter animates, never the ones already on screen.
+            // Break the line into ordered units (one bouncing span per character,
+            // gamified). Authored <br>s are treated as NORMAL SPACES so the copy
+            // FLOWS and wraps to fill the full width of the bubble at the single
+            // uniform font size — using the left-right space instead of stacking
+            // into a narrow centre column with big empty side margins.
             const units = [];
-            text.split(/(<br>)/g).forEach(tok => {
-                if (tok === '<br>') { units.push({ br: true }); return; }
+            text.split(/(<br\s*\/?>)/gi).forEach(tok => {
+                if (/^<br/i.test(tok)) { units.push({ ch: ' ' }); return; }
                 for (const ch of tok) units.push({ ch });
             });
 
             let index = 0;
+            let currentWord = null;   // per-word wrapper so words never split
 
             // Neutral, unhurried cadence for early readers — lively but calm.
             const TYPE_SPEED = TYPE_SPEED_MS;
@@ -2525,14 +3578,24 @@
 
                 const u = units[index++];
                 if (u.br) {
+                    currentWord = null;
                     inner.appendChild(document.createElement('br'));
                 } else if (u.ch === ' ') {
-                    inner.appendChild(document.createTextNode(' '));
+                    currentWord = null;                       // end the current word
+                    inner.appendChild(document.createTextNode(' '));
                 } else {
+                    // Letters go into a per-WORD wrapper (.dt-word, nowrap) so a
+                    // word never breaks across lines (the line wraps only at the
+                    // spaces between words). Each letter keeps its own char-pop.
+                    if (!currentWord) {
+                        currentWord = document.createElement('span');
+                        currentWord.className = 'dt-word';
+                        inner.appendChild(currentWord);
+                    }
                     const span = document.createElement('span');
                     span.className = 'char-pop';
                     span.textContent = u.ch;
-                    inner.appendChild(span);
+                    currentWord.appendChild(span);
                 }
             }, TYPE_SPEED);
         }
@@ -2914,7 +3977,11 @@
 
         // ----- Tutorial idle hand hint (hand nudge.png) -----
         const handHint = document.getElementById('hand-hint');
-        const TUTORIAL_IDLE_HAND_MS = 0;   // show on the interactive element immediately (no idle wait)
+        // Small idle delay AFTER the dialogue has finished typing and the tap is
+        // enabled, before the hand appears (BUG #4 — the hand must never show
+        // while Gogo is still speaking). The show is additionally gated on
+        // gameState.canInteract inside armTutorialIdleTimer().
+        const TUTORIAL_IDLE_HAND_MS = 700;
         let tutorialIdleTimer = null;
         let tutorialIdleArmed = false;
         const TUTORIAL_IDLE_EVENTS = ['mousemove', 'touchstart', 'click', 'keydown'];
@@ -2923,15 +3990,21 @@
             if (!activeTapTarget) return;
             const sr = stage.getBoundingClientRect();
             const r  = activeTapTarget.getBoundingClientRect();
-            // Hand sits just below the target, pointing up at it.
+            // Hand sits on the CENTRE of the target jar (tap-here hint), centred on
+            // both axes via the .show transform (translate(-50%, -50%)).
             handHint.style.left = (r.left - sr.left + r.width * 0.5) + 'px';
-            handHint.style.top  = (r.top  - sr.top  + r.height * 0.98) + 'px';
+            handHint.style.top  = (r.top  - sr.top  + r.height * 0.5) + 'px';
         }
 
         function armTutorialIdleTimer() {
             clearTimeout(tutorialIdleTimer);
             tutorialIdleTimer = setTimeout(() => {
-                if (!tutorialIdleArmed || !activeTapTarget) return;
+                // BUG #4: only ever reveal the hand once the dialogue has fully
+                // finished AND the tap target is actually enabled. While Gogo is
+                // typing/holding, gameState.canInteract is false, so this no-ops;
+                // the hand is (re)armed when interaction enables (see
+                // showInstructionThenEnable), then shows after the idle delay.
+                if (!tutorialIdleArmed || !activeTapTarget || !gameState.canInteract) return;
                 placeHandOnTarget();
                 handHint.classList.add('show');
             }, TUTORIAL_IDLE_HAND_MS);
@@ -2985,13 +4058,15 @@
             }
             showStageGuide();
 
-            // Show the hand hint + glow ON the target jar RIGHT AWAY (while Gogo is
-            // still pointing), so the child sees exactly where to tap the moment the
-            // instruction appears — no dead gap where the genie has left but the hand
-            // hasn't arrived. The hand is z-index 30 (above Gogo) so it is never
-            // hidden behind him. Interaction stays gated until the line is read.
+            // Glow the target jar right away so the child can see WHERE to tap,
+            // but the animated HAND is gated (armTutorialIdleTimer checks
+            // gameState.canInteract) so it never appears while Gogo is still
+            // speaking (BUG #4). The hand only shows after the line finishes,
+            // the guide hides, interaction enables, and the idle delay elapses.
             if (targetEl) setActiveTapTarget(targetEl);
 
+            // Bubble size is chosen automatically from the copy length inside
+            // setDialogue() (applyDialogueMode), so no manual sizing here.
             setDialogue(text, () => {
                 const t1 = setTimeout(() => {
                     hideGuide();
@@ -3043,12 +4118,21 @@
         // front step under the nozzle (tall ≈ 0.55·h, wide is shorter so it needs
         // a larger drop ≈ 1.35·h to reach the same step instead of floating at the
         // dispenser base).
-        // dropPct (optional): extra downward nudge at the fill spot, as a fraction
-        // of the STAGE height — used to sit the wide jar a little lower on the
-        // front step so it reads as grounded under the nozzle.
+        // dropPct (optional): vertical nudge at the fill spot, as a fraction of the
+        // STAGE height (positive = down, negative = up). Tunes where the wide jar
+        // settles on the front step so it reads as grounded under the nozzle.
+        // -0.01 lifts it ~5% up from the earlier 4%-down spot (which sat too low /
+        // clipped), so it rests just above the front step.
+        // restOnCounter: keep the container planted on the table at its HOME
+        //   vertical baseline and glide it ONLY horizontally under the spout, so
+        //   it never sinks onto the lower floor step (the old tapYOffset drop sent
+        //   the jar far below the counter, with a giant disconnected stream).
+        //   fillNudgePct optionally nudges it down a touch (fraction of STAGE
+        //   height) so a tall glass reads as sitting under the tap rather than
+        //   overlapping the dispenser body.
         const CONTAINER_ANCHORS = {
-            tall: { mouthX: 0.50, mouthY: 0.02, tapYOffset: 0.55 },
-            wide: { mouthX: 0.50, mouthY: 0.08, tapYOffset: 1.35, dropPct: 0.04 }
+            tall: { mouthX: 0.50, mouthY: 0.02, restOnCounter: true, fillNudgePct: 0.04 },
+            wide: { mouthX: 0.50, mouthY: 0.08, restOnCounter: true, fillNudgePct: 0.00 }
         };
 
         // Shared "magically guided" glide of a jar under the dispenser tap.
@@ -3062,10 +4146,17 @@
                 const tap = getTapPoint();
 
                 const dx = tap.x - (wr.left + wr.width  * a.mouthX);
-                let   dy = (tap.y + wr.height * a.tapYOffset) - (wr.top + wr.height * a.mouthY);
-                // Optional extra drop (fraction of stage height) so the jar sits
-                // a touch lower on the front step.
-                if (a.dropPct) dy += stageRect().height * a.dropPct;
+                let   dy;
+                if (a.restOnCounter) {
+                    // Stay on the counter (home baseline); only a small optional
+                    // downward nudge. Never drop onto the lower floor step.
+                    dy = (a.fillNudgePct || 0) * stageRect().height;
+                } else {
+                    dy = (tap.y + wr.height * a.tapYOffset) - (wr.top + wr.height * a.mouthY);
+                    // Optional extra drop (fraction of stage height) so the jar sits
+                    // a touch lower on the front step.
+                    if (a.dropPct) dy += stageRect().height * a.dropPct;
+                }
 
                 const target = `translate(${dx}px, ${dy}px)`;
                 // Store the PURE translate so the success bounce / return can
@@ -3122,16 +4213,14 @@
         }
 
         // ---------- Step 3: liquid fills (and bubbles + genie bounce in parallel) ----------
-        // The dispenser drains via the CSS mask for the full FILL_MS while the
-        // tall container fills — drain, stream and fill all stop together.
+        // The juice level only starts rising HERE — AFTER the dispenser has already
+        // opened (started draining) and its stream has reached the jar mouth (see
+        // runTallFillSequence). So the order always reads: dispenser opens → juice
+        // streams down → THEN the jar fills. The dispenser drain is frozen in
+        // successEffect() when the fill + stream finish, so they all stop together.
         function fillTall() {
             return new Promise(resolve => {
                 tall.src = JUICE_FILL_SRC + '?t=' + Date.now();
-
-                // Dispenser plays the animated drain SVG for the WHOLE fill; it
-                // is frozen in successEffect() exactly when the tall container is
-                // full and the stream stops — so drain + stream end together.
-                startDispenserDrain();
 
                 createContainerBubbles(tallWrap, NATURAL_FILL_MS, 'tall');
                 genieHappyBounce(NATURAL_FILL_MS - 100);
@@ -3320,8 +4409,16 @@
                 if (tallDrainMask) tallDrainMask.classList.remove('active');
 
                 await moveTallToTap();   // 1
-                startPour();             // 2 (pour starts, runs in parallel)
-                await fillTall();        // 3-4 fill + bubbles + genie bounce
+                // 2) DISPENSER OPENS FIRST: it starts draining and the stream
+                //    begins falling from the nozzle. The jar is still EMPTY here.
+                startDispenserDrain();
+                startPour();
+                // 3) Wait for the falling stream to reach the jar mouth, THEN the
+                //    juice level rises — so it always reads dispenser-opens →
+                //    stream falls → jar fills (never a "phantom" fill before the
+                //    dispenser opens).
+                await wait(STREAM_CONNECT_MS);
+                await fillTall();        // 4 fill + bubbles + genie bounce
                 await successEffect();   // 5 sparkle + glow + bounce; pour hidden HERE
                 await returnTall();      // 6 wrapper moves back; liquid persists
 
@@ -3430,6 +4527,22 @@
         // Position the pour SVG over the COMBINED bounding box of the two real
         // containers (which keep their own positions/sizes). object-fit:fill
         // stretches the artwork to that exact area — no shrink, no jump.
+        // The DRAWN jars in juice-pour.svg do NOT fill its viewBox ("100 72 425
+        // 400"): the tall glass + wide jar artwork spans these fractions of the
+        // box (measured from the SVG paths at rest — tall glass left edge to wide
+        // jar right edge, and the lowest jar foot):
+        //   x: 0.0231 .. 0.9653   (so the content is ~94.2% of the box width)
+        //   bottom: 0.970          (jar feet sit 3% above the box bottom)
+        // Sizing the overlay to the bare combined-jar box (the old behaviour) made
+        // the depicted jars ~6% SMALLER than the real TAll/Wide containers and
+        // floated them ~3% above the table line — i.e. the pour art's jars were a
+        // different size from the static container SVGs (the reported mismatch).
+        // We instead solve the overlay box so the DRAWN content's horizontal
+        // extent equals the real combined-jar width and its baseline sits on the
+        // real table line → the animated jars read at the SAME size + position as
+        // TAll/Wide Container.svg, on every screen.
+        const FWD_POUR_CONTENT = { fx0: 0.0231, fx1: 0.9653, fyBottom: 0.970 };
+
         function positionPourSvgExactlyOverContainers() {
             const stageBox = stage.getBoundingClientRect();
             const tallBox  = tallWrap.getBoundingClientRect();
@@ -3438,25 +4551,20 @@
             const right  = Math.max(tallBox.right,  wideBox.right)  - stageBox.left;
             const bottom = Math.max(tallBox.bottom, wideBox.bottom) - stageBox.top;
 
-            // Span the full horizontal extent of both containers (dynamic), then
-            // scale up around the box centre so the art reads at full size. Keep
-            // the height tied to the artwork's own aspect ratio so it is never
-            // squished or stretched. Anchor near the bottom — where the
-            // receiving jar + splash land over the destination container — so
-            // enlarging grows the lifted/tilted source upward, not off the table.
-            const baseWidth = right - left;
-            const centerX   = left + baseWidth / 2;
+            const realWidth   = right - left;
+            const c           = FWD_POUR_CONTENT;
+            const contentFrac = c.fx1 - c.fx0;            // drawn jars' share of the box width
 
-            // Size to the EXACT combined span of the two real containers (NO
-            // upscale — the old 1.35× POUR_BOX_SCALE is what made the SVG's
-            // drawn jars look bigger than the real jars and "jump" on swap).
-            // The box keeps the artwork's own aspect, so object-fit:fill does
-            // not stretch it: the depicted jars now read at the real jars' scale.
-            const width  = baseWidth;
+            // Box width so the drawn jars span exactly the real combined-jar width
+            // (no distortion: the box keeps the artwork's own aspect, so
+            // object-fit:fill stretches uniformly).
+            const width  = realWidth / contentFrac;
             const height = width / POUR_ART_ASPECT;
 
-            htmlPourImg.style.left   = (centerX - width / 2) + 'px';
-            htmlPourImg.style.top    = (bottom - height) + 'px';
+            // Anchor: the drawn content's left edge → real left, and the drawn jar
+            // feet (fyBottom) → the real table line at the bottom.
+            htmlPourImg.style.left   = (left - c.fx0 * width) + 'px';
+            htmlPourImg.style.top    = (bottom - c.fyBottom * height) + 'px';
             htmlPourImg.style.width  = width + 'px';
             htmlPourImg.style.height = height + 'px';
             htmlPourImg.style.transform = 'none';
@@ -3621,22 +4729,124 @@
             }
             const sr = stage.getBoundingClientRect();
             const r  = tallWrap.getBoundingClientRect();
-            const w  = r.width * 2.6;
-            const h  = r.height * 0.16;
+            const w  = r.width * 2.8;
+            const h  = r.height * 0.18;
             tallSpillEl.style.width  = w + 'px';
             tallSpillEl.style.height = h + 'px';
             tallSpillEl.style.left   = (r.left - sr.left + r.width / 2 - w / 2) + 'px';
-            tallSpillEl.style.top    = (r.bottom - sr.top - h * 0.45) + 'px';
+            // Sit the pool ON the table just below the jar base (was riding up the
+            // jar). The receiving (tall) jar overflowed, so the juice pools here.
+            tallSpillEl.style.top    = (r.bottom - sr.top - h * 0.28) + 'px';
             // Drop + reflow + re-add so the entrance transition replays cleanly
             // even when the puddle was already on screen (no second element).
             tallSpillEl.classList.remove('show');
             void tallSpillEl.offsetWidth;
             tallSpillEl.classList.add('show');
             tutorialVisualState.spillVisible = true;
+            // Gamify: juice on the jar exterior + recurring drips onto the table.
+            startOverflowDrips();
         }
         function hideOverflowSpill() {
             if (tallSpillEl) tallSpillEl.classList.remove('show');
             tutorialVisualState.spillVisible = false;
+            stopOverflowDrips();
+        }
+
+        /* =========================================================
+           GAMIFIED OVERFLOW DRIPS (the user's request + BUG #6 polish)
+           Juice clings to the OUTSIDE of the over-full tall jar (a rim cap +
+           two rivulets running down the sides) and recurring droplets fall
+           from the rim to the table, each landing in a small ripple on the
+           spill puddle. Tied to the spill-puddle lifecycle (started by
+           showOverflowSpill, stopped by hideOverflowSpill / cleanup) so it can
+           never leak into the next screen. All nodes live on #game-stage and
+           track the REAL jar via getBoundingClientRect, so they stay aligned
+           even if the jar moves or the stage resizes.
+           ========================================================= */
+        let overflowDripTimer = null;
+        let overflowDripNodes = [];
+        function startOverflowDrips() {
+            stopOverflowDrips();                       // never stack two systems
+            const sr = stage.getBoundingClientRect();
+            const r  = tallWrap.getBoundingClientRect();
+            const baseLeft = r.left - sr.left;
+            const baseTop  = r.top  - sr.top;
+
+            const mk = (cls, css) => {
+                const el = document.createElement('div');
+                el.className = cls;
+                Object.assign(el.style, css);
+                stage.appendChild(el);
+                overflowDripNodes.push(el);
+                return el;
+            };
+            // Juice cresting over the rim.
+            mk('ov-rim', {
+                left:  (baseLeft + r.width * 0.13) + 'px',
+                top:   (baseTop  + r.height * 0.02) + 'px',
+                width: (r.width * 0.74) + 'px',
+                height:(r.height * 0.07) + 'px'
+            });
+            // Two rivulets down the jar sides (one longer than the other).
+            [{ x: 0.15, len: 0.44 }, { x: 0.78, len: 0.30 }].forEach(c => {
+                mk('ov-rivulet', {
+                    left:  (baseLeft + r.width * c.x) + 'px',
+                    top:   (baseTop  + r.height * 0.06) + 'px',
+                    width: Math.max(3, r.width * 0.06) + 'px',
+                    height:(r.height * c.len) + 'px'
+                });
+            });
+
+            const spawnRipple = (x, y) => {
+                const d = Math.max(10, tallWrap.getBoundingClientRect().width * 0.55);
+                const rip = document.createElement('div');
+                rip.className = 'ov-ripple';
+                Object.assign(rip.style, {
+                    left: (x - d / 2) + 'px', top: (y - d / 4) + 'px',
+                    width: d + 'px', height: (d * 0.5) + 'px'
+                });
+                stage.appendChild(rip);
+                setTimeout(() => rip.remove(), 700);
+            };
+            const spawnDrop = () => {
+                const sBox = stage.getBoundingClientRect();
+                const rr = tallWrap.getBoundingClientRect();   // live (jar may move)
+                const sX = rr.left - sBox.left, sY = rr.top - sBox.top;
+                const side = Math.random() < 0.5 ? 0.15 : 0.80;
+                const dropX = sX + rr.width * (side + (Math.random() - 0.5) * 0.05);
+                const startY = sY + rr.height * 0.10;
+                const landY  = sY + rr.height * 0.99;
+                const sz = Math.max(5, rr.width * 0.11) * (0.8 + Math.random() * 0.5);
+
+                const drop = document.createElement('div');
+                drop.className = 'ov-drop';
+                Object.assign(drop.style, {
+                    left: (dropX - sz / 2) + 'px', top: startY + 'px',
+                    width: sz + 'px', height: (sz * 1.3) + 'px',
+                    transition: 'transform 720ms cubic-bezier(.45,.05,.65,1), opacity 200ms ease 560ms'
+                });
+                stage.appendChild(drop);
+                overflowDripNodes.push(drop);
+                requestAnimationFrame(() => {
+                    drop.style.transform = `translateY(${landY - startY}px) scaleY(1.15)`;
+                    drop.style.opacity = '0';
+                });
+                setTimeout(() => {
+                    drop.remove();
+                    const i = overflowDripNodes.indexOf(drop);
+                    if (i >= 0) overflowDripNodes.splice(i, 1);
+                    spawnRipple(dropX, landY);
+                }, 740);
+            };
+
+            spawnDrop();
+            overflowDripTimer = setInterval(spawnDrop, 820);
+        }
+        function stopOverflowDrips() {
+            if (overflowDripTimer) { clearInterval(overflowDripTimer); overflowDripTimer = null; }
+            overflowDripNodes.forEach(n => n.remove());
+            overflowDripNodes = [];
+            document.querySelectorAll('.ov-drop, .ov-ripple, .ov-rivulet, .ov-rim').forEach(n => n.remove());
         }
 
         // The "magical" overflow beat — fired once during the SVG's final ~1.5s
@@ -3689,13 +4899,17 @@
         // until the depicted gap matches the real on-table gap. Bump toward 1.42
         // if the gap still looks too small.
         // The overflow SVG's RECEIVER (tall) glass occupies these fractions of the
-        // overlay box AFTER the scaleX(-1) mirror. Derived from the SVG's tallClip
-        // (x 252..347, y 200..441 inside viewBox "34 -34 360 500"): un-mirrored
-        // x = 0.606..0.869 -> mirrored x = 0.131..0.394; y bottom = 0.95. We size +
-        // place the overlay so this drawn glass maps EXACTLY onto the real tall jar,
-        // so the depicted jars read at the SAME size as TAll/Wide Container.svg (no
-        // scale jump) and the pourer scales in proportion.
-        const OVERFLOW_RECEIVER = { fx0: 0.1306, fx1: 0.3944, fy1: 0.95 };
+        // overlay box AFTER the scaleX(-1) mirror. Re-derived for the current
+        // juice-pour-overflow.svg, whose tallClip is translate(328 200) with the
+        // same glass path, inside viewBox "34 -34 410 560":
+        //   x = 328..423, y = 200..441
+        //   un-mirrored x = (328-34)/410 .. (423-34)/410 = 0.717..0.949
+        //   mirrored x   = 1-0.949 .. 1-0.717            = 0.051..0.283
+        //   y bottom     = (441+34)/560                  = 0.848
+        // We size + place the overlay so this drawn glass maps EXACTLY onto the real
+        // tall jar, so the depicted jars read at the SAME size as TAll/Wide
+        // Container.svg (no scale jump) and the pourer scales in proportion.
+        const OVERFLOW_RECEIVER = { fx0: 0.0512, fx1: 0.2829, fy1: 0.8482 };
 
         function fitOverflowSvgToRealJars() {
             const stageBox = stage.getBoundingClientRect();
@@ -4047,7 +5261,7 @@
             // 0.58 keeps the falling juice landing inside the jar mouth.
             // Vertical stream: same x as the tap so the juice falls straight DOWN
             // from the spout into the jar (the jar is centred under the tap point).
-            const to = toStage(tap.x, wr.top + wr.height * 0.58);
+            const to = toStage(tap.x, wr.top + wr.height * 0.80);
 
             const dx = to.x - from.x;
             const dy = to.y - from.y;
@@ -4120,8 +5334,13 @@
                 //    drain's first frame is the same y=258 level), frozen below
                 //    when the wide fill + stream finish. Pure vector clip decrease,
                 //    no cream sheet/overlay.
-                startWidePour();
+                // DISPENSER OPENS FIRST: start draining + the stream falls while
+                // the wide jar is still empty.
                 startDispenserDrain(JAR_WIDE_DRAIN_SRC);
+                startWidePour();
+                // SYNC: hold the juice rise until the stream has reached the wide
+                // jar mouth (so it reads dispenser-opens → stream → jar fills).
+                await wait(STREAM_CONNECT_MS);
                 createContainerBubbles(wideWrap, WIDE_FILL_MS, 'wide');
 
                 // 3) Swap the wide art to the animated fill SVG so the juice
@@ -4961,7 +6180,7 @@
                 const sr = stage.getBoundingClientRect();
                 const r  = mgIdleTarget.getBoundingClientRect();
                 handHint.style.left = (r.left - sr.left + r.width * 0.5) + 'px';
-                handHint.style.top  = (r.top  - sr.top  + r.height * 0.98) + 'px';
+                handHint.style.top  = (r.top  - sr.top  + r.height * 0.5) + 'px';  // centre of the jar
                 handHint.classList.add('show');
             }, 4000);
         }
@@ -5759,55 +6978,64 @@
             clearTimeout(quizIdleTimer);     quizIdleTimer = null;
             clearTimeout(mgIdleTimer);       mgIdleTimer = null;
             clearTimeout(mgQuizIdleTimer);   mgQuizIdleTimer = null;
+            // Never let the tap-here hand leak into the next screen (BUG #4).
+            if (handHint) handHint.classList.remove('show');
+            // Stop the gamified overflow drips + remove their nodes.
+            if (typeof stopOverflowDrips === 'function') stopOverflowDrips();
             // Remove any orphan particle/stream/FX nodes left mid-flight.
             document.querySelectorAll(
                 '.fx-sparkle, .fx-bubble, .fx-pour-stream, .magic-ring, .mg-stream, ' +
-                '.mg-bubble, .mg-drop, .mg-splash, .confetti-piece, .star-particle, .fill-check'
+                '.mg-bubble, .mg-drop, .mg-splash, .confetti-piece, .star-particle, .fill-check, ' +
+                '.ov-drop, .ov-ripple, .ov-rivulet, .ov-rim'
             ).forEach(n => n.remove());
         }
 
         // ---------- Play Again → back to the tutorial start ----------
         function restartGame() {
-            cleanupAnimationState();   // stop every leftover timer/stream/particle
-            mgFinal.classList.remove('show');
-            mgFinal.setAttribute('aria-hidden', 'true');
-            mgResetAll();
-            mgStage.classList.remove('show');
-            mgStage.setAttribute('aria-hidden', 'true');
-            clearLevelTheme();
-            currentLevelId = 'watermelon';
-
-            // Reset tutorial scene + state.
-            hideOverflowSpill();
-            resetGeniePose();
-            setDispenserFull();
-            tall.src = TALL_EMPTY_SRC;
-            wide.src = WIDE_EMPTY_SRC;
-            tallLiquid.classList.remove('full');
-            if (tallDrainMask) tallDrainMask.classList.remove('active');
-            tallWrap.style.transform = ''; wideWrap.style.transform = '';
-            document.body.classList.remove('fx-busy', 'scene-playing');
-
-            tutorialLevel = TUTORIAL_LEVELS.TALL_TO_WIDE;
-            currentStep = STEPS.TAP_FILL_TALL;
-            gameState.busy = false;
-            gameState.canInteract = false;
-            currentState = GAME_STATES.TUTORIAL_START;
-            console.log('[juiceGame] Play Again → tutorial restart');
-            showInstructionThenEnable('Tap to fill<br>this container.', tallWrap);
+            // Defensively hide any old/disabled overlays + the completion screen,
+            // then restart the unified capacity flow in the tutorial phase.
+            const cc = document.getElementById('capacity-complete');
+            if (cc) { cc.classList.remove('show'); cc.setAttribute('aria-hidden', 'true'); }
+            if (typeof mgFinal !== 'undefined' && mgFinal) { mgFinal.classList.remove('show'); mgFinal.setAttribute('aria-hidden', 'true'); }
+            if (typeof mgStage !== 'undefined' && mgStage) { mgStage.classList.remove('show'); mgStage.setAttribute('aria-hidden', 'true'); }
+            if (typeof clearLevelTheme === 'function') clearLevelTheme();
+            console.log('[juiceGame] Play Again → capacity flow restart (tutorial)');
+            startCapacityFlow({ assets: TUTORIAL_ASSETS, phase: 'tutorial' });
         }
+
+        // Completion screen "Play Again" → restart the whole experience.
+        (function wireCapacityPlayAgain() {
+            const btn = document.getElementById('capacity-play-again');
+            if (!btn) return;
+            let armed = true;
+            btn.addEventListener('click', () => {
+                if (!armed) return;
+                armed = false;
+                createSparkles(btn, 16);
+                restartGame();
+                setTimeout(() => { armed = true; }, 800);
+            });
+        })();
 
         // ---------- Entry point ----------
         // Tutorial hands off here; begin the first data-driven level (watermelon),
         // which chains to kiwi on completion.
         function startMainGame() {
-            console.log('[juiceGame] startMainGame() → first level (watermelon)');
-            startLevel('watermelon');
+            if (ENABLE_OLD_MAIN_GAME) {
+                console.log('[juiceGame] startMainGame() → OLD main game (watermelon)');
+                startLevel('watermelon');
+                return;
+            }
+            // New behaviour: the post-tutorial experience is the tutorial-style
+            // main-game iteration (same flow/layout/timing, MAIN_GAME_ASSETS art).
+            console.log('[juiceGame] startMainGame() → tutorial-style main game iteration');
+            startMainGameIteration();
         }
 
         // ---------- Wiring ----------
         // The large container is the only tappable prop, and only while armed.
         mgLargeWrap.addEventListener('click', () => {
+            if (!ENABLE_OLD_MAIN_GAME) return;   // old main game disabled
             if (gameState.busy || !mgPourArmed) return;
             mgPourArmed = false;
             createSparkles(mgLargeWrap, 12);
@@ -5817,8 +7045,8 @@
         });
 
         // Quiz cards: tap handling + reusable magical hover/tap polish.
-        mgCardLarge.addEventListener('click', () => mgOnCardTap(mgCardLarge));
-        mgCardSmall.addEventListener('click', () => mgOnCardTap(mgCardSmall));
+        mgCardLarge.addEventListener('click', () => { if (ENABLE_OLD_MAIN_GAME) mgOnCardTap(mgCardLarge); });
+        mgCardSmall.addEventListener('click', () => { if (ENABLE_OLD_MAIN_GAME) mgOnCardTap(mgCardSmall); });
         makeContainerMagical(mgCardLarge, { tapSparkle: false });
         makeContainerMagical(mgCardSmall, { tapSparkle: false });
 
@@ -6139,13 +7367,20 @@
         makeContainerMagical(rightChoice);
         goChoiceEls.forEach(el => makeContainerMagical(el));
 
-        // ---------- Boot: type the first instruction ----------
-        // Main game fully removed: drop its overlay from the DOM so it can
-        // never render, regardless of any stale call path.
+        // ---------- Boot: intro screens FIRST, then the capacity flow ----------
+        // Both old main-game overlays are removed from the DOM so they can never
+        // render: the legacy round game (#game-overlay) and the standalone
+        // main-game module (#mg-stage). The post-tutorial experience is the
+        // tutorial-style main-game iteration (same engine), so neither is needed.
         if (gameOverlay && gameOverlay.parentNode) gameOverlay.remove();
+        if (!ENABLE_OLD_MAIN_GAME && typeof mgStage !== 'undefined' && mgStage && mgStage.parentNode) {
+            mgStage.remove();
+        }
 
-        currentState = GAME_STATES.TUTORIAL_START;
-        showInstructionThenEnable('Tap to fill<br>this container.', tallWrap);
+        // Boot: show the loading/title screen (banner + "Let's Go" button). The
+        // intro + tutorial only begin once the child taps Start.
+        // (showLoadingScreen → Start → showPreLBDSequence → startCapacityFlow.)
+        showLoadingScreen();
 
         // ---------- Debug / inspection helpers ----------
         function debugContainerState() {
@@ -6219,6 +7454,15 @@
             goToState,
             getState,
             startMainGame,
+            // ---- Capacity Flow engine (tutorial + main-game iteration) ----
+            startCapacityFlow,
+            startMainGameIteration,
+            showCapacityComplete,
+            clearCapacityFlowState,
+            applyCapacityAssets,
+            MAIN_GAME_ASSETS,
+            TUTORIAL_ASSETS,
+            getCapacityPhase: () => CAPACITY_PHASE,
             getCurrentRound,
             GAME_STATES,
             GAME_ROUNDS,
@@ -6229,6 +7473,7 @@
             getCurrentStep: () => currentStep,
             getTutorialLevel: () => tutorialLevel,
             startWideToTallOverflowLevel,
+            playLevelCurtainTransition,
             // Level-2 wide → tall overflow pour debug surface
             playWideToTallOverflowPour,
             validateOverflowPourOverlay,
