@@ -2708,7 +2708,12 @@
             CAPACITY_PHASE = config.phase || 'tutorial';
             // Watermelon theme drives the post-tutorial (main) iteration.
             document.body.classList.toggle('phase-watermelon', CAPACITY_PHASE === 'main');
-            clearCapacityFlowState();
+            // Single master reset: clears timers/streams/particles, hard-resets
+            // both container wrappers to home (position lock), zeroes volume/
+            // overflow/tap, sets the dispenser back to FULL (a fresh iteration),
+            // and bumps runId so any in-flight sequence from the previous
+            // iteration/replay is orphaned. (Supersedes the old bare cleanup.)
+            resetCapacityState({ dispenserLevel: 'full' });
             if (config.assets) applyCapacityAssets(config.assets);
 
             // setupCapacityScene: fresh dispenser-full, both containers empty,
@@ -2913,6 +2918,106 @@
             busy: false,
             canInteract: false
         };
+
+        /* ============================================================
+           SINGLE SOURCE OF TRUTH — capacity-flow runtime state
+           ------------------------------------------------------------
+           tap state, dispenser level, per-container volume + capacity,
+           the active-animation generation token, and overflow state all
+           live HERE and nowhere else. resetCapacityState() returns every
+           field to a known-clean baseline, so no value can leak across
+           attempts, levels, or replays. gameState is augmented in place
+           because it is already exported (by reference) on __juiceGame.
+           ============================================================ */
+        // Relative LOGICAL capacities (the WIDE jar holds MORE than the TALL
+        // jar — the whole lesson). Volumes are logical units used only to
+        // DECIDE overflow + keep the displayed/known quantity honest; the SVG
+        // art still draws the real liquid.
+        const CAPACITY = Object.freeze({ tall: 100, wide: 180, dispenser: 200 });
+        function freshContainers() {
+            return {
+                tall: { volume: 0, capacity: CAPACITY.tall },
+                wide: { volume: 0, capacity: CAPACITY.wide }
+            };
+        }
+        Object.assign(gameState, {
+            runId: 0,                      // generation token (race guard)
+            tap: 'closed',                 // 'closed' | 'opening' | 'open' | 'closing'
+            dispenser: { level: 'full' },  // 'full' | 'used' | 'low' | 'empty'
+            containers: freshContainers(),
+            overflow: { active: false, excess: 0 }
+        });
+
+        // ---- Race guard ----------------------------------------------------
+        // Every long async sequence captures the current runId at entry; a reset
+        // (or a newly-started sequence) bumps it, so a stale sequence detects
+        // isStale() after its next await and bails. This is what prevents
+        // overlapping timeouts / streams / callbacks from a previous attempt
+        // from mutating the scene (the rapid-tap + transition race conditions).
+        function bumpRunId()       { return ++gameState.runId; }
+        function isStale(runId)    { return runId !== gameState.runId; }
+
+        // ---- Dispenser fill level <-> art ----------------------------------
+        function dispenserPoseSrc(level) {
+            if (level === 'full') return JAR_FULL_SRC;
+            if (level === 'low')  return JAR_PAUSED_LOW_SRC || JAR_PAUSED_SRC;
+            return JAR_PAUSED_SRC;                       // 'used' (and fallback)
+        }
+
+        // ---- Volume / overflow bookkeeping (single source of truth) --------
+        // Fill a container from the dispenser; the dispenser level steps down.
+        function recordFill(which, dispenserLevelAfter) {
+            const c = gameState.containers[which];
+            if (c) c.volume = c.capacity;                // filled to its own level
+            if (dispenserLevelAfter) gameState.dispenser.level = dispenserLevelAfter;
+        }
+        // Pour `from` into `to`; compute the overflow excess and flag it ONLY
+        // when the transferred volume exceeds the receiver's capacity.
+        function recordPour(from, to) {
+            const f = gameState.containers[from];
+            const t = gameState.containers[to];
+            if (!f || !t) return 0;
+            const poured = f.volume;
+            f.volume = 0;                                // source emptied by the pour
+            const excess = Math.max(0, poured - t.capacity);
+            t.volume = Math.min(poured, t.capacity);
+            gameState.overflow = { active: excess > 0, excess: excess };
+            return excess;
+        }
+
+        // ---- Master reset --------------------------------------------------
+        // The ONE place that returns the capacity flow to a clean baseline.
+        // Called on every entry / replay / level-transition. Bumps runId
+        // (orphaning any in-flight sequence), clears all timers/streams/
+        // particles via clearCapacityFlowState, HARD-resets both container
+        // wrappers to their home transform (position lock — a stale transform
+        // is what made a later jar "jump"), and zeroes volume/overflow/tap/
+        // dispenser state. `opts.dispenserLevel` keeps an already-used dispenser
+        // level across a level transition (so it is not refilled to full).
+        function resetCapacityState(opts) {
+            opts = opts || {};
+            bumpRunId();
+            if (typeof clearCapacityFlowState === 'function') clearCapacityFlowState();
+            if (typeof clearDispenserDrain === 'function') clearDispenserDrain();
+            // Position lock: clear residual transform/filter/z/opacity so the
+            // next rect-based move measures the TRUE home rect.
+            [tallWrap, wideWrap].forEach(el => {
+                if (!el) return;
+                el.style.transition = '';
+                el.style.transform  = '';
+                el.style.filter     = '';
+                el.style.opacity    = '';
+                el.style.visibility = 'visible';
+                el.style.zIndex     = '';
+            });
+            if (typeof fxRefs === 'object') fxRefs.wrapTargetTransform = '';
+            if (typeof wideTargetTransform !== 'undefined') wideTargetTransform = '';
+            gameState.tap = 'closed';
+            gameState.dispenser.level = opts.dispenserLevel || 'full';
+            gameState.containers = freshContainers();
+            gameState.overflow = { active: false, excess: 0 };
+            return gameState.runId;
+        }
 
         /* =========================================================
            UNIFIED STATE MACHINE
@@ -3479,6 +3584,39 @@
             else { pre.onload = apply; pre.onerror = apply; }
         }
 
+        // Promise-returning crossfade swap of the #juice dispenser: decode the
+        // target off-screen FIRST, dip opacity, swap, fade back — resolving ONLY
+        // once the target is actually on screen. This is what lets a caller
+        // guarantee the dispenser is visibly OPEN before it starts the pour
+        // stream + fill. No cache-bust → the pre-decoded ~7 MB bitmap is reused
+        // (no stall); restartAnim clears the src first when the same url already
+        // shows, so the animated drain's SMIL restarts from frame 0.
+        function crossfadeDispenserTo(targetSrc, opts) {
+            const restartAnim = !!(opts && opts.restartAnim);
+            return new Promise(resolve => {
+                const pre = new Image();
+                pre.src = targetSrc;
+                const doSwap = () => {
+                    juice.style.transition = 'opacity 130ms ease';
+                    juice.style.opacity = '0.5';
+                    dispenserFreezeTimer = setTimeout(() => {
+                        if (restartAnim && (juice.getAttribute('src') || '') === targetSrc) {
+                            juice.removeAttribute('src');   // fresh SVG doc → SMIL restart
+                        }
+                        juice.src = targetSrc;              // already decoded → paints now
+                        requestAnimationFrame(() => { juice.style.opacity = '1'; });
+                        dispenserFreezeTimer = setTimeout(() => {
+                            juice.style.transition = '';
+                            resolve();
+                        }, 140);
+                    }, 110);
+                };
+                if (pre.decode) pre.decode().then(doSwap).catch(doSwap);
+                else if (pre.complete) doSwap();
+                else { pre.onload = doSwap; pre.onerror = doSwap; }
+            });
+        }
+
         function setDispenserFull() {
             clearDispenserDrain();
             swapDispenserSrc(JAR_FULL_SRC);
@@ -3493,15 +3631,19 @@
                 swapDispenserSrc(JAR_PAUSED_SRC);
             }
         }
-        // Start the drain animation (restart its SMIL via cache-bust). The clip
-        // plays once and freezes; freezeDispenserDrain() locks the static pose.
-        // drainSrc lets level 2 use the MID→LOW drain (JAR_WIDE_DRAIN_SRC) instead
-        // of the default full→mid drain.
-        function startDispenserDrain(drainSrc) {
+        // OPEN the dispenser: crossfade to the animated drain (SMIL restarts from
+        // frame 0) and AWAIT the swap, so the dispenser is visibly OPEN before the
+        // caller starts the pour stream + fill. This is the single guarantee that
+        // the order is always dispenser-opens → stream falls → jar fills, on the
+        // first play, every subsequent play, and every replay (issues #1 & #3).
+        // The crossfade also softens the level-2 used→flow dissolve (no hard
+        // snap), while keeping the dispenser flow ANIMATION fully intact.
+        // drainSrc lets level 2 use a dedicated MID→LOW drain when one exists.
+        async function startDispenserDrain(drainSrc) {
             clearDispenserDrain();
-            // Animated drain: decode first (so the full→draining handoff is
-            // seamless), cache-bust so its SMIL restarts from the full frame.
-            swapDispenserSrc(drainSrc || JAR_DRAIN_SRC, { restartAnim: true });
+            gameState.tap = 'opening';
+            await crossfadeDispenserTo(drainSrc || JAR_DRAIN_SRC, { restartAnim: true });
+            gameState.tap = 'open';
         }
         // Freeze the drain at the current moment by crossfading to the paused
         // pose. The crossfade softens the small level snap (looping SVG → paused
@@ -3511,6 +3653,7 @@
         // happens inside the SVG, not via a cream overlay.
         function freezeDispenserDrain(pausedSrc) {
             const target = pausedSrc || JAR_PAUSED_SRC;   // static pose, no cache-bust
+            gameState.tap = 'closing';
             // Decode the paused pose off-screen FIRST, then crossfade to it, so the
             // swap never shows a wrong/half-decoded frame (no "snap back to full").
             const pre = new Image();
@@ -3521,6 +3664,7 @@
                 dispenserFreezeTimer = setTimeout(() => {
                     juice.src = target;     // already decoded → paints immediately
                     requestAnimationFrame(() => { juice.style.opacity = '1'; });
+                    gameState.tap = 'closed';
                     dispenserFreezeTimer = setTimeout(() => { juice.style.transition = ''; }, 200);
                 }, 130);
             };
@@ -4388,6 +4532,7 @@
         async function runTallFillSequence() {
             if (gameState.busy) return;
             gameState.busy = true;
+            const myRun = gameState.runId;   // race guard: bail if a reset supersedes us
             currentState = GAME_STATES.TUTORIAL_FILL_TALL;
             document.body.classList.add('fx-busy');
 
@@ -4411,17 +4556,26 @@
                 if (tallDrainMask) tallDrainMask.classList.remove('active');
 
                 await moveTallToTap();   // 1
-                // 2) DISPENSER OPENS FIRST: it starts draining and the stream
-                //    begins falling from the nozzle. The jar is still EMPTY here.
-                startDispenserDrain();
+                if (isStale(myRun)) return;
+                // 2) DISPENSER OPENS FIRST — and we AWAIT it, so the nozzle is
+                //    visibly draining BEFORE the stream + fill start. The jar is
+                //    still EMPTY here. (open-before-pour guarantee, issue #1.)
+                await startDispenserDrain();
+                if (isStale(myRun)) return;
                 startPour();
                 // 3) Wait for the falling stream to reach the jar mouth, THEN the
                 //    juice level rises — so it always reads dispenser-opens →
                 //    stream falls → jar fills (never a "phantom" fill before the
                 //    dispenser opens).
                 await wait(STREAM_CONNECT_MS);
+                if (isStale(myRun)) return;
                 await fillTall();        // 4 fill + bubbles + genie bounce
+                if (isStale(myRun)) return;
+                // Single source of truth: the tall jar is now full and the
+                // dispenser has dispensed one tall pour (full → used).
+                recordFill('tall', 'used');
                 await successEffect();   // 5 sparkle + glow + bounce; pour hidden HERE
+                if (isStale(myRun)) return;
                 await returnTall();      // 6 wrapper moves back; liquid persists
 
                 // Advance the tutorial: now ask the player to pour into wide.
@@ -4432,13 +4586,15 @@
             } catch (err) {
                 console.error('Tall fill sequence error:', err);
             } finally {
-                if (fxRefs.bubbleTimer) {
-                    clearInterval(fxRefs.bubbleTimer);
-                    fxRefs.bubbleTimer = null;
+                // Only release the lock if THIS run is still current — a reset
+                // (replay / transition) bumps runId and owns its own cleanup, so a
+                // superseded run must not clear the newer run's busy flag.
+                if (!isStale(myRun)) {
+                    if (fxRefs.bubbleTimer) { clearInterval(fxRefs.bubbleTimer); fxRefs.bubbleTimer = null; }
+                    if (fxRefs.pourStream) { fxRefs.pourStream.remove(); fxRefs.pourStream = null; }
+                    document.body.classList.remove('fx-busy');
+                    gameState.busy = false;
                 }
-                if (fxRefs.pourStream) { fxRefs.pourStream.remove(); fxRefs.pourStream = null; }
-                document.body.classList.remove('fx-busy');
-                gameState.busy = false;
             }
         }
 
@@ -4610,11 +4766,18 @@
             if (gameState.busy) return;
 
             gameState.busy = true;
+            const myRun = gameState.runId;   // race guard
             gameState.canInteract = false;
             document.body.classList.add('fx-busy');
 
             try {
                 currentStep = STEPS.POURING_TO_WIDE;
+
+                // Single source of truth: pour the tall jar into the wide jar.
+                // tall(100) into wide(180) → excess 0, so overflow stays OFF and the
+                // wide jar shows space remaining (the lesson). Recorded so the
+                // overflow flag is correct/reset for this attempt.
+                recordPour('tall', 'wide');
 
                 // Show both static containers on the table to start.
                 tall.src = TALL_EMPTY_SRC || EMPTY_GLASS_SRC;   // TAll container.svg
@@ -4626,6 +4789,7 @@
                 // Play the pour: hides the containers, shows juice-pour.svg in
                 // the SAME box, then restores tall=empty / wide=half-wide.svg.
                 await playHtmlPourAnimation();
+                if (isStale(myRun)) return;
                 await wait(120);
 
                 createSparkles(wideWrap, 14);
@@ -4636,11 +4800,14 @@
                 // the Level-2 (wide → tall) pacing.
                 gameState.canInteract = false;
                 await wait(500);
+                if (isStale(myRun)) return;
                 currentStep = STEPS.QUIZ;
                 showCapacityQuiz();
             } finally {
-                document.body.classList.remove('fx-busy');
-                gameState.busy = false;
+                if (!isStale(myRun)) {
+                    document.body.classList.remove('fx-busy');
+                    gameState.busy = false;
+                }
             }
         }
 
@@ -5184,6 +5351,11 @@
         // Entry: reset → show empty tall + wide → ask to fill the wide jar.
         async function startWideToTallOverflowLevel() {
             hideCapacityQuiz();
+            // Level transition: reset volumes/overflow/tap + position-lock both
+            // wrappers + bump runId (orphan the level-1 sequence), but KEEP the
+            // dispenser at its already-used level (level 1 dispensed one pour — it
+            // must not look refilled). Then paint the level-2 scene.
+            resetCapacityState({ dispenserLevel: 'used' });
             resetTableSceneForLevel2();
             currentStep  = STEPS.L2_TAP_FILL_WIDE;
             currentState = GAME_STATES.TUTORIAL_POUR_TO_WIDE;
@@ -5310,6 +5482,7 @@
         async function runWideFillSequence() {
             if (gameState.busy) return;
             gameState.busy = true;
+            const myRun = gameState.runId;   // race guard
             gameState.canInteract = false;
             document.body.classList.add('fx-busy');
             clearActiveTapTargets();
@@ -5330,19 +5503,30 @@
                 //    identical (was a horizontal-only move that left it floating at
                 //    the dispenser base).
                 await moveContainerToTap(wideWrap, 'wide');
+                if (isStale(myRun)) return;
 
-                // 2) Pour stream from the nozzle; dispenser plays the MID→LOW
-                //    drain SVG (continues seamlessly from the mid pose above — the
-                //    drain's first frame is the same y=258 level), frozen below
-                //    when the wide fill + stream finish. Pure vector clip decrease,
-                //    no cream sheet/overlay.
-                // DISPENSER OPENS FIRST: start draining + the stream falls while
-                // the wide jar is still empty.
-                startDispenserDrain(JAR_WIDE_DRAIN_SRC);
+                // 2) DISPENSER OPENS FIRST — AWAITED, so it is visibly open before
+                //    the stream + fill begin (open-before-pour, issue #1).
+                //    No-snap rule (issue #4): only play an animated drain when a
+                //    DEDICATED mid→low drain exists (orange tutorial:
+                //    orange_jar_wide_drain). When the level-2 drain is the same
+                //    asset as the level-1 full drain (watermelon main game), a
+                //    swap would restart the SMIL from FULL and snap the juice back
+                //    UP — so we instead KEEP the already-used, open-tap pose (its
+                //    nozzle is open) and let the pour stream convey the flow. Either
+                //    way the dispenser never refills.
+                const hasDedicatedLowDrain = JAR_WIDE_DRAIN_SRC && JAR_WIDE_DRAIN_SRC !== JAR_DRAIN_SRC;
+                if (hasDedicatedLowDrain) {
+                    await startDispenserDrain(JAR_WIDE_DRAIN_SRC);   // animates mid→low, no snap
+                } else {
+                    gameState.tap = 'open';                          // used/open pose held; no snap-to-full
+                }
+                if (isStale(myRun)) return;
                 startWidePour();
                 // SYNC: hold the juice rise until the stream has reached the wide
                 // jar mouth (so it reads dispenser-opens → stream → jar fills).
                 await wait(STREAM_CONNECT_MS);
+                if (isStale(myRun)) return;
                 createContainerBubbles(wideWrap, WIDE_FILL_MS, 'wide');
 
                 // 3) Swap the wide art to the animated fill SVG so the juice
@@ -5353,29 +5537,45 @@
                 // freezes earlier — so stream, bubbles and dispenser drain stay in
                 // sync and all stop together at the end.
                 await wait(WIDE_FILL_MS);
+                if (isStale(myRun)) return;
+                // Single source of truth: the wide jar is now full; the dispenser
+                // has dispensed a second pour (used → low).
+                recordFill('wide', 'low');
 
                 // 4) Stop the stream + freeze the dispenser drain together, then
                 //    celebrate. The dispenser juice decreased NATURALLY from the
                 //    mid level to the low level via the vector clip drain; freeze
                 //    to the static LOW pose (JAR_PAUSED_LOW_SRC). No cream sheet.
                 stopPourStream();
-                freezeDispenserDrain(JAR_PAUSED_LOW_SRC);
+                // Lock the drained pose. With a dedicated drain we crossfade to the
+                // LOW pose; otherwise the dispenser already shows the used/open pose
+                // (we never snapped it up), so we just mark the tap closed — no
+                // needless same-pose crossfade flicker.
+                if (hasDedicatedLowDrain) {
+                    freezeDispenserDrain(JAR_PAUSED_LOW_SRC);
+                } else {
+                    gameState.tap = 'closed';
+                }
                 createSparkles(wideWrap, 18);
                 playSound('success');
                 await wait(300);
+                if (isStale(myRun)) return;
 
                 // 5) Smoothly return the wide jar to its original spot; it stays
                 //    visually full (frozen fill SVG persists).
                 await returnWide();
+                if (isStale(myRun)) return;
 
                 // Tap 2 prompt: pour the wide jar into the other (tall) container.
                 currentStep = STEPS.L2_TAP_POUR_TO_TALL;
                 showInstructionThenEnable('Tap to pour<br>into the other jar.', wideWrap);
             } finally {
-                if (fxRefs.bubbleTimer) { clearInterval(fxRefs.bubbleTimer); fxRefs.bubbleTimer = null; }
-                if (fxRefs.pourStream) { fxRefs.pourStream.remove(); fxRefs.pourStream = null; }
-                document.body.classList.remove('fx-busy');
-                gameState.busy = false;
+                if (!isStale(myRun)) {
+                    if (fxRefs.bubbleTimer) { clearInterval(fxRefs.bubbleTimer); fxRefs.bubbleTimer = null; }
+                    if (fxRefs.pourStream) { fxRefs.pourStream.remove(); fxRefs.pourStream = null; }
+                    document.body.classList.remove('fx-busy');
+                    gameState.busy = false;
+                }
             }
         }
 
@@ -5427,12 +5627,20 @@
         async function runWideToTallPourSequence() {
             if (gameState.busy) return;
             gameState.busy = true;
+            const myRun = gameState.runId;   // race guard
             gameState.canInteract = false;
             document.body.classList.add('fx-busy');
             clearActiveTapTargets();
 
             try {
                 currentStep = STEPS.L2_POURING_TO_TALL;
+
+                // Single source of truth: pour the wide jar into the tall jar.
+                // wide(180) into tall(100) → excess 80, so overflow turns ON. The
+                // excess is computed here (not hard-coded into the scene), and is
+                // reset by resetCapacityState on the next attempt/level so it can
+                // never leak. The overflow VISUAL plays only because excess > 0.
+                const excess = recordPour('wide', 'tall');
 
                 // Starting art for the pour: tall empty. The wide jar keeps the
                 // frozen-full fill SVG from runWideFillSequence (no re-swap, so
@@ -5446,12 +5654,17 @@
                 // full/overflow · wide=empty · spill the moment the SVG ends
                 // (and fires the magical overflow beat in its last 1.5s). We do
                 // NOT re-set jar srcs here — that would double-swap / restart
-                // artwork and risk a duplicate or out-of-sync jar.
-                await playReversePourAnimation();
+                // artwork and risk a duplicate or out-of-sync jar. The overflow
+                // scene plays because the recorded pour exceeded the tall jar's
+                // capacity (excess > 0). setOverflowVisualState (called when the
+                // SVG ends) keeps the spill on screen only while overflow.active.
+                if (excess > 0) await playReversePourAnimation();
+                if (isStale(myRun)) return;
                 await wait(120);
 
                 createSparkles(tallWrap, 16);
                 await wait(500);
+                if (isStale(myRun)) return;
 
                 // Go STRAIGHT to the quiz — the overflow explanation now plays
                 // AFTER the child answers (in the success flow), not before, so
@@ -5459,8 +5672,10 @@
                 currentStep = STEPS.QUIZ;
                 showCapacityQuiz();
             } finally {
-                document.body.classList.remove('fx-busy');
-                gameState.busy = false;
+                if (!isStale(myRun)) {
+                    document.body.classList.remove('fx-busy');
+                    gameState.busy = false;
+                }
             }
         }
 
