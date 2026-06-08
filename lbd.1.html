@@ -3235,10 +3235,13 @@
             if (a.gogo && genie) genie.src = a.gogo;
             if (tutorialCelebrateImg) tutorialCelebrateImg.src = WIN_GOGO_SRC;
             if (a.handHint && handHint) handHint.src = a.handHint;
-            // Warm the cache for the (possibly new) art so the first swap is instant.
+            // Warm the cache for the (possibly new) art so the first swap is
+            // instant. We force a DECODE (not just load) on the heavy animated
+            // drain poses so the dispenser opens with no decode lag on first use.
             [JAR_FULL_SRC, JAR_DRAIN_SRC, JAR_PAUSED_SRC, EMPTY_GLASS_SRC, JUICE_FILL_SRC,
              WIDE_EMPTY_SRC, WIDE_HALF_SRC, WIDE_FILL_JAR_SRC, HTML_POUR_SRC,
-             WIDE_TO_TALL_OVERFLOW_POUR_SRC].forEach(s => { const p = new Image(); p.src = s; });
+             WIDE_TO_TALL_OVERFLOW_POUR_SRC, JAR_WIDE_DRAIN_SRC, JAR_PAUSED_LOW_SRC]
+                .forEach(s => { const p = new Image(); p.src = s; if (p.decode) p.decode().catch(() => {}); });
         }
 
         // Warm the cache so the first swap is near-instant.
@@ -3454,10 +3457,23 @@
         //     restart; cache-busting only forces a needless flashing re-decode).
         function swapDispenserSrc(baseSrc, opts) {
             const restartAnim = !!(opts && opts.restartAnim);
-            const url = restartAnim ? (baseSrc + '?t=' + Date.now()) : baseSrc;
+            // NOZZLE-OPEN DELAY FIX: do NOT cache-bust the animated (SMIL) drain.
+            // The old `?t=Date.now()` made the ~7MB jar SVG a fresh URL every fill,
+            // forcing a full re-download + re-decode (~800ms) — so the dispenser
+            // "opened" long after the pour stream began. The warmed cache already
+            // holds the decoded drain, so we reuse it. The drain is always swapped
+            // in from a DIFFERENT pose (full/paused), which yields a fresh SVG
+            // document whose SMIL begins at 0 — restarting it WITHOUT a cache-bust.
             const pre = new Image();
-            pre.src = url;
-            const apply = () => { juice.src = url; };
+            pre.src = baseSrc;
+            const apply = () => {
+                // Edge case: if the same drain URL is already showing, briefly
+                // clear it so re-assigning yields a fresh SVG doc (SMIL restart).
+                if (restartAnim && (juice.getAttribute('src') || '') === baseSrc) {
+                    juice.removeAttribute('src');
+                }
+                juice.src = baseSrc;
+            };
             if (pre.decode) pre.decode().then(apply).catch(apply);
             else if (pre.complete) apply();
             else { pre.onload = apply; pre.onerror = apply; }
