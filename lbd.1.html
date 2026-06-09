@@ -84,12 +84,15 @@
         }
 
         /* ============ Rotate-to-landscape gate (mobile portrait) ============
-           This is a landscape 16:9 game. On a portrait phone / small tablet the
-           stage would shrink to a tiny letterboxed strip, so instead we cover the
-           screen with a friendly "turn your device" prompt. Pure CSS — it appears
-           and disappears with the orientation, the game keeps its state behind it. */
+           This is a landscape 16:9 game. On ANY portrait touch device — phone or
+           tablet of any size — the stage would shrink to a tiny letterboxed strip,
+           so instead we cover the screen with a friendly "turn your device" prompt.
+           Keyed on `pointer: coarse` (touch) so it fires on every phone/tablet in
+           portrait regardless of width, but never on a desktop (which can't be
+           physically rotated — those users just resize the window). Pure CSS: it
+           appears/disappears with orientation; the game keeps its state behind it. */
         #rotate-gate { display: none; }
-        @media screen and (orientation: portrait) and (max-width: 900px) {
+        @media screen and (orientation: portrait) and (pointer: coarse) {
             #rotate-gate {
                 display: flex;
                 position: fixed;
